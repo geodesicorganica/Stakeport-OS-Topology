@@ -1,7 +1,7 @@
-import { NodeMeta, VectorMeta } from '../types/os';
+import { NodeMeta, VectorMeta, NodeStatus } from '../types/os';
 
 // Coordinate maps per phase to make sure they are beautifully laid out without overlap
-export const phaseNodeCoords: Record<'crawl' | 'walk' | 'run' | 'ops', Record<string, { x: number; y: number; status: 'LIVE' | 'QUEUED_BLOCKED' | 'NOT_STARTED' | 'UNLOCKED' }>> = {
+export const phaseNodeCoords: Record<'crawl' | 'walk' | 'run' | 'ops', Record<string, { x: number; y: number; status: NodeStatus }>> = {
   crawl: {
     founder_ceo: { x: 10, y: 25, status: 'LIVE' },
     founder_agent: { x: 10, y: 55, status: 'LIVE' },
@@ -12,14 +12,14 @@ export const phaseNodeCoords: Record<'crawl' | 'walk' | 'run' | 'ops', Record<st
     cms: { x: 90, y: 30, status: 'LIVE' },
     web_publisher: { x: 90, y: 65, status: 'LIVE' },
     // Planned or Queued missing agents in Crawl
-    operating_director: { x: 30, y: 15, status: 'QUEUED_BLOCKED' },
-    sprint_manager: { x: 50, y: 15, status: 'QUEUED_BLOCKED' },
-    ai_research_agent: { x: 50, y: 70, status: 'QUEUED_BLOCKED' },
-    content_writer: { x: 70, y: 15, status: 'QUEUED_BLOCKED' },
-    fact_checker: { x: 70, y: 70, status: 'QUEUED_BLOCKED' },
-    analytics_stack: { x: 90, y: 15, status: 'QUEUED_BLOCKED' },
-    knowledge_base: { x: 10, y: 85, status: 'QUEUED_BLOCKED' },
-    dam_library: { x: 30, y: 85, status: 'QUEUED_BLOCKED' },
+    operating_director: { x: 30, y: 15, status: 'BLOCKED' },
+    sprint_manager: { x: 50, y: 15, status: 'BLOCKED' },
+    ai_research_agent: { x: 50, y: 70, status: 'BLOCKED' },
+    content_writer: { x: 70, y: 15, status: 'BLOCKED' },
+    fact_checker: { x: 70, y: 70, status: 'BLOCKED' },
+    analytics_stack: { x: 90, y: 15, status: 'BLOCKED' },
+    knowledge_base: { x: 10, y: 85, status: 'BLOCKED' },
+    dam_library: { x: 30, y: 85, status: 'BLOCKED' },
   },
   walk: {
     founder_ceo: { x: 8, y: 20, status: 'LIVE' },
@@ -43,14 +43,14 @@ export const phaseNodeCoords: Record<'crawl' | 'walk' | 'run' | 'ops', Record<st
     analytics_stack: { x: 80, y: 75, status: 'LIVE' },
     
     // Others are queued/planned in Walk
-    growth_strategy: { x: 44, y: 30, status: 'QUEUED_BLOCKED' },
-    ai_drafting_agent: { x: 44, y: 50, status: 'QUEUED_BLOCKED' },
-    designer_creative: { x: 62, y: 80, status: 'QUEUED_BLOCKED' },
-    brand_reviewer: { x: 62, y: 10, status: 'QUEUED_BLOCKED' },
-    legal_reviewer: { x: 62, y: 90, status: 'QUEUED_BLOCKED' },
-    seo_agent: { x: 94, y: 15, status: 'QUEUED_BLOCKED' },
-    email_marketer: { x: 94, y: 35, status: 'QUEUED_BLOCKED' },
-    social_distributor: { x: 94, y: 55, status: 'QUEUED_BLOCKED' },
+    growth_strategy: { x: 44, y: 30, status: 'BLOCKED' },
+    ai_drafting_agent: { x: 44, y: 50, status: 'BLOCKED' },
+    designer_creative: { x: 62, y: 80, status: 'BLOCKED' },
+    brand_reviewer: { x: 62, y: 10, status: 'BLOCKED' },
+    legal_reviewer: { x: 62, y: 90, status: 'BLOCKED' },
+    seo_agent: { x: 94, y: 15, status: 'BLOCKED' },
+    email_marketer: { x: 94, y: 35, status: 'BLOCKED' },
+    social_distributor: { x: 94, y: 55, status: 'BLOCKED' },
     dam_library: { x: 26, y: 92, status: 'UNLOCKED' },
   },
   run: {
@@ -87,10 +87,10 @@ export const phaseNodeCoords: Record<'crawl' | 'walk' | 'run' | 'ops', Record<st
     feedback_director: { x: 95, y: 65, status: 'LIVE' },
     
     // Queued roles in Run
-    video_multimedia: { x: 54, y: 60, status: 'QUEUED_BLOCKED' },
-    sme_product: { x: 54, y: 80, status: 'QUEUED_BLOCKED' },
-    paid_media_operator: { x: 95, y: 10, status: 'QUEUED_BLOCKED' },
-    pr_distributor: { x: 95, y: 85, status: 'QUEUED_BLOCKED' },
+    video_multimedia: { x: 54, y: 60, status: 'BLOCKED' },
+    sme_product: { x: 54, y: 80, status: 'BLOCKED' },
+    paid_media_operator: { x: 95, y: 10, status: 'BLOCKED' },
+    pr_distributor: { x: 95, y: 85, status: 'BLOCKED' },
   },
   ops: {
     founder_ceo: { x: 7, y: 12, status: 'LIVE' },

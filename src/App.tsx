@@ -62,7 +62,8 @@ import {
   ApprovalItem,
   ConstraintCheck,
   DispatchBrief,
-  LearningLogEntry
+  LearningLogEntry,
+  NodeStatus
 } from './types/os';
 
 import { phaseNodeCoords, baseNodes, baseVectors } from './data/topology';
@@ -71,6 +72,8 @@ import { seededAgents } from './data/agents';
 import { seededApprovals } from './data/approvals';
 import { seededWorkflows } from './data/workflows';
 import { seededLearningLog } from './data/learningLog';
+import { seededDispatches } from './data/dispatches';
+import { seededConstraints } from './data/constraints';
 
 import { FounderDashboard } from './components/FounderDashboard';
 import { WorkflowsDashboard } from './components/WorkflowsDashboard';
@@ -158,7 +161,7 @@ export default function App() {
   // Global States
   const [activePhase, setActivePhase] = useState<'crawl' | 'walk' | 'run' | 'ops'>('crawl');
   const [activeTab, setActiveTab] = useState<'topology' | 'founder' | 'contentOs' | 'agents' | 'learning'>('topology');
-  const [customNodeStatuses, setCustomNodeStatuses] = useState<Record<string, 'ONLINE' | 'QUEUED' | 'CRITICAL_BLOCKED' | 'NOT_STARTED'>>({});
+  const [customNodeStatuses, setCustomNodeStatuses] = useState<Record<string, NodeStatus>>({});
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>('founder_ceo');
   const [selectedVectorId, setSelectedVectorId] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -217,6 +220,8 @@ export default function App() {
   const [approvals, setApprovals] = useState<ApprovalItem[]>(seededApprovals);
   const [workflows, setWorkflows] = useState<OsWorkflow[]>(seededWorkflows);
   const [learningLog, setLearningLog] = useState<LearningLogEntry[]>(seededLearningLog);
+  const [dispatches, setDispatches] = useState<DispatchBrief[]>(seededDispatches);
+  const [constraints, setConstraints] = useState<ConstraintCheck[]>(seededConstraints);
 
   // Step-by-Step Tracer engine state
   const [tracer, setTracer] = useState<TracerState>({
@@ -231,10 +236,10 @@ export default function App() {
 
   // Seeded DB Store (simulating shared memory registries)
   const [dbRecords, setDbRecords] = useState<DBRecord[]>([
-    { id: 'rec-101', key: 'brand_manifesto_v1.0.md', type: 'Markdown Source', phase: 'Crawl', status: 'APPROVED', latency: '4ms' },
-    { id: 'rec-102', key: 'operating_charter_v2.md', type: 'Markdown Source', phase: 'Crawl', status: 'APPROVED', latency: '6ms' },
-    { id: 'rec-103', key: 'website_architecture_specs.json', type: 'Schema Mappings', phase: 'Crawl', status: 'IN_REVIEW', latency: '22ms' },
-    { id: 'rec-104', key: 'seo_playbook_2026.json', type: 'JSON Ruleset', phase: 'Walk', status: 'PENDING', latency: '40ms' },
+    { id: 'rec-101', key: 'shared/positioning.md', type: 'Markdown Source', phase: 'Crawl', status: 'APPROVED', latency: '4ms' },
+    { id: 'rec-102', key: 'agents/founder/outputs/strategic_directives.md', type: 'Markdown Source', phase: 'Crawl', status: 'APPROVED', latency: '6ms' },
+    { id: 'rec-103', key: 'agents/chief-of-staff/skills/workflow-planning/schema.json', type: 'Schema Mappings', phase: 'Crawl', status: 'IN_REVIEW', latency: '22ms' },
+    { id: 'rec-104', key: 'shared/audiences.md', type: 'JSON Ruleset', phase: 'Walk', status: 'PENDING', latency: '40ms' },
   ]);
 
   // Phase compliance checklists
@@ -257,7 +262,7 @@ export default function App() {
     ops: [
       { id: 'to-1', text: 'Achieve fully decentralized autonomous digital agent pipelines.', completed: false },
       { id: 'to-2', text: 'Enable self-healing memory updates using automated Vector storage overrides.', completed: false },
-      { id: 'to-3', text: 'Verify cross-pod backup failsafes and decentralized executive multi-sig keys.', completed: false },
+      { id: 'to-3', text: 'Verify cross-pod backup failsafes and human founder-in-the-loop signing controls.', completed: false },
     ],
   };
 
@@ -325,9 +330,9 @@ export default function App() {
 
   // Manual trace trigger
   const handleStartTracer = (type: 'LOW_RISK' | 'HIGH_RISK' | 'LEARNING') => {
-    const defaultLowPrefixes = ['recmd_packet_weekly_newsletter.json', 'content_brief_q3_campaign.json', 'draft_onboarding_guide.md'];
-    const defaultHighPrefixes = ['campaign_auth_token_0xf49.xml', 'brand_escalation_report_notion.json', 'critical_financial_recom.yaml'];
-    const defaultLearnPrefixes = ['analytics_outlier_engagement.json', 'learned_newsletter_click_trends.yaml'];
+    const defaultLowPrefixes = ['shared/messaging-pillars.md', 'agents/chief-of-staff/outputs/launch-marketing-website/initiative_brief.md', 'shared/voice-and-tone.md'];
+    const defaultHighPrefixes = ['agents/chief-of-staff/outputs/launch-marketing-website/recommendation_packet.md', 'agents/chief-of-staff/outputs/launch-marketing-website/constraints_check.md', 'agents/chief-of-staff/outputs/launch-marketing-website/domain_dispatch.md'];
+    const defaultLearnPrefixes = ['learn-001-observation_metrics', 'learn-002-observation_metrics'];
     
     const packetName = manualPacketName.trim() || (type === 'LOW_RISK' 
       ? defaultLowPrefixes[Math.floor(Math.random() * defaultLowPrefixes.length)]
@@ -435,14 +440,14 @@ export default function App() {
   const handleTracerComplete = () => {
     addLog('SYS', 'success', `STAKEPORT OS OPERATIONAL WORKFLOW COMPLETED: Verified tracing run finished successfully for [${tracer.packetName}].`);
     
-    // Auto insert an approved record into Notion DB simulation:
+    // Auto insert an approved or pending review record into Notion DB simulation:
     const customId = `rec-gen-${Date.now()}`;
     const newDbEntry: DBRecord = {
       id: customId,
       key: tracer.packetName,
-      type: tracer.type === 'LOW_RISK' ? 'Verified Low-Risk Content' : tracer.type === 'HIGH_RISK' ? 'Approved Campaign Token' : 'Learning Insight Vector',
+      type: tracer.type === 'LOW_RISK' ? 'Verified Low-Risk Content' : tracer.type === 'HIGH_RISK' ? 'Staged Campaign Token' : 'Learning Insight Vector',
       phase: activePhase.toUpperCase(),
-      status: 'APPROVED',
+      status: tracer.type === 'HIGH_RISK' ? 'IN_REVIEW' : 'APPROVED',
       latency: '2ms',
     };
     setDbRecords(prev => [newDbEntry, ...prev]);
@@ -527,18 +532,25 @@ export default function App() {
   };
 
   return (
-    <div id="stakeport-fluid-layout" className="w-full h-screen bg-slate-950 text-slate-300 font-sans flex flex-col justify-between overflow-hidden text-[13px] select-none">
+    <div id="stakeport-fluid-layout" className="w-full h-screen bg-obsidian text-slate-305 font-sans flex flex-col justify-between overflow-hidden text-[13px] select-none">
       
       {/* HUD OVERVIEW BAR */}
-      <header id="hud-topline-header" className="h-16 shrink-0 border-b border-slate-800 bg-slate-900/45 px-6 flex items-center justify-between z-10">
+      <header id="hud-topline-header" className="h-16 shrink-0 border-b border-slate-700 bg-midnight px-6 flex items-center justify-between z-10">
         <div className="flex items-center gap-4">
-          <div className="w-9 h-9 bg-emerald-500 rounded flex items-center justify-center text-slate-950 font-black italic text-xl shadow-[0_0_15px_rgba(16,185,129,0.35)] shrink-0">S</div>
+          <div className="shrink-0 flex items-center justify-center">
+            <svg width="34" height="34" viewBox="0 0 56 56">
+              <circle cx="28" cy="28" r="26" fill="none" stroke="#2D6FE8" strokeWidth="2.5" opacity="0.8"/>
+              <circle cx="28" cy="28" r="17" fill="#2D6FE8" opacity="0.15"/>
+              <circle cx="28" cy="28" r="10" fill="#1B3B8A"/>
+              <text x="28" y="32" textAnchor="middle" fontFamily="'JetBrains Mono',monospace" fontSize="12" fontWeight="900" fill="#EBF0FF">SP</text>
+            </svg>
+          </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xs font-black tracking-wider uppercase text-white font-mono">STAKEPORT OPERATING SYSTEM</h1>
-              <span className="text-[9px] px-1.5 py-0.5 bg-slate-800 rounded text-slate-400 font-mono tracking-tighter border border-slate-700">v2.4.1_PROD</span>
+              <span className="font-sans font-bold tracking-[0.16em] text-[15px] uppercase text-vortex-blue leading-none">STAKEPORT</span>
+              <span className="text-[9px] px-1.5 py-0.5 bg-slate-800 rounded text-slate-400 font-mono tracking-tighter border border-slate-700">v1.0_PROD</span>
             </div>
-            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-mono">Network Topology & Relational Schema Router</p>
+            <p className="text-[10px] text-type-secondary font-sans font-medium tracking-wide">The institutional management platform for staked assets</p>
           </div>
         </div>
 
@@ -566,9 +578,9 @@ export default function App() {
           <button
             onClick={() => {
               setDbRecords([
-                { id: 'rec-101', key: 'Crawl_Foundational_Topology.asset', type: 'Static Graph', phase: 'Crawl', status: 'APPROVED', latency: '12ms' },
-                { id: 'rec-102', key: 'Governance_Consensus_Sigs.json', type: 'JSON Crypt', phase: 'Crawl', status: 'APPROVED', latency: '14ms' },
-                { id: 'rec-103', key: 'Relational_Core_Notion_Sync.yaml', type: 'Database Mapping', phase: 'Walk', status: 'IN_REVIEW', latency: '22ms' },
+                { id: 'rec-101', key: 'shared/company-overview.md', type: 'Markdown Context', phase: 'Crawl', status: 'APPROVED', latency: '12ms' },
+                { id: 'rec-102', key: 'agents/chief-of-staff/skills/workflow-planning/schema.json', type: 'Schema Mapping', phase: 'Crawl', status: 'APPROVED', latency: '14ms' },
+                { id: 'rec-103', key: 'agents/chief-of-staff/outputs/launch-marketing-website/initiative_brief.md', type: 'Workflow Brief', phase: 'Walk', status: 'IN_REVIEW', latency: '22ms' },
               ]);
               setLogs([]);
               addLog('SYS', 'warn', 'Operating variables re-calibrated. Relational buffers flushed to core defaults.');
@@ -585,13 +597,13 @@ export default function App() {
       <div id="central-rig-layout" className="flex-1 flex overflow-hidden w-full">
         
         {/* PANEL 1: LEFT SIDE NAV - GOAL SETTING & PHASE SELECTOR */}
-        <aside id="phased-implementation-panel" className="w-72 shrink-0 border-r border-slate-800 bg-slate-900/25 p-4 flex flex-col justify-between overflow-y-auto">
+        <aside id="phased-implementation-panel" className="w-72 shrink-0 border-r border-slate-700 bg-midnight p-4 flex flex-col justify-between overflow-y-auto">
           
           <div className="space-y-4">
             <div>
               <div className="flex justify-between items-center mb-1">
-                <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">01 / Phased Infrastructure</h2>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <h2 className="text-[10px] font-bold text-type-secondary uppercase tracking-widest font-mono">01 / Phased Infrastructure</h2>
+                <span className="w-2 h-2 rounded-full bg-vortex-blue animate-pulse"></span>
               </div>
               <p className="text-[11px] text-slate-400 leading-tight mb-3">
                 Transition through phases to open relational mapping and security routes.
@@ -725,13 +737,13 @@ export default function App() {
         <main id="topology-visualizer-and-tracer" className="flex-1 flex flex-col p-5 gap-4 overflow-hidden relative">
           
           {/* SUB-TABS SELECTOR HEADER BAR */}
-          <div className="flex border-b border-slate-800 pb-1.5 shrink-0 select-none z-10 gap-1 flex-wrap">
+          <div className="flex border-b border-slate-700 pb-1.5 shrink-0 select-none z-10 gap-1 flex-wrap">
             {[
-              { id: 'topology', label: 'Topology Map', icon: Compass, color: 'text-emerald-400 border-emerald-500' },
-              { id: 'founder', label: 'Founder Governance', icon: Shield, color: 'text-amber-400 border-amber-500' },
-              { id: 'contentOs', label: 'Content OS Workflows', icon: Workflow, color: 'text-cyan-400 border-cyan-500' },
-              { id: 'agents', label: 'Domain Agents Control', icon: Bot, color: 'text-indigo-400 border-indigo-500' },
-              { id: 'learning', label: 'Learned Insights', icon: Sparkles, color: 'text-purple-400 border-purple-500' },
+              { id: 'topology', label: 'Topology Map', icon: Compass, color: 'text-vortex-blue border-vortex-blue' },
+              { id: 'founder', label: 'Founder Governance', icon: Shield, color: 'text-vortex-blue border-vortex-blue' },
+              { id: 'contentOs', label: 'Content OS Workflows', icon: Workflow, color: 'text-vortex-blue border-vortex-blue' },
+              { id: 'agents', label: 'Domain Agents Control', icon: Bot, color: 'text-vortex-blue border-vortex-blue' },
+              { id: 'learning', label: 'Learned Insights', icon: Sparkles, color: 'text-vortex-blue border-vortex-blue' },
             ].map((tab) => {
               const active = activeTab === tab.id;
               const Icon = tab.icon;
@@ -744,8 +756,8 @@ export default function App() {
                   }}
                   className={`flex items-center gap-2 px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all ${
                     active
-                      ? `${tab.color} text-white bg-slate-900/40 rounded-t-lg`
-                      : 'border-transparent text-slate-500 hover:text-slate-350 hover:bg-slate-950/15'
+                      ? `${tab.color} text-white bg-slate-800/40 rounded-t-lg`
+                      : 'border-transparent text-slate-500 hover:text-slate-350 hover:bg-slate-800/10'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -761,7 +773,7 @@ export default function App() {
                 <div
                   id="topology-backdrop"
                   onClick={() => setIsTopologyFullscreen(false)}
-                  className="fixed inset-0 bg-slate-950/90 [backdrop-filter:blur(8px)] z-[99]"
+                  className="fixed inset-0 bg-obsidian/90 [backdrop-filter:blur(8px)] z-[99]"
                 />
               )}
               {/* VISUAL TOPOLOGY OVERLAY CANVAS CONTAINER */}
@@ -769,29 +781,29 @@ export default function App() {
                 id="interactive-topology-canvas"
                 className={`flex flex-col justify-between overflow-hidden relative transition-all duration-300 ${
                   isTopologyFullscreen
-                    ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] h-[90vh] max-w-7xl bg-slate-950/95 border-2 border-cyan-500/30 rounded-2xl p-6 shadow-[0_0_60px_rgba(34,211,238,0.2)] z-[100]'
-                    : 'flex-1 border border-slate-800 bg-slate-900/15 rounded-xl px-6 py-4 shadow-[inset_0_0_35px_rgba(0,0,0,0.7)]'
+                    ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] h-[90vh] max-w-7xl bg-obsidian/95 border-2 border-vortex-blue/30 rounded-2xl p-6 shadow-[0_0_60px_rgba(45,111,232,0.2)] z-[100]'
+                    : 'flex-1 border border-slate-700 bg-midnight rounded-xl px-6 py-4 shadow-[inset_0_0_35px_rgba(0,0,0,0.7)]'
                 }`}
               >
                 
                 {/* Header label and key indicators */}
                 <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-                  <Compass className="w-4 h-4 text-emerald-400" />
+                  <Compass className="w-4 h-4 text-vortex-blue" />
                   <div>
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block font-mono">THEME CORE MAP VIEW</span>
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block font-mono">STAKEPORT VORTEX MAP VIEW</span>
                     <div className="flex items-center gap-1.5 text-xs text-white uppercase font-black tracking-wider">
-                      <span>ACTIVE INTEGRATION TOPOLOGY</span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                      <span>ACTIVE ALLOCATION TOPOLOGY</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-vortex-blue animate-ping"></span>
                     </div>
                   </div>
                 </div>
 
                 <div className="absolute top-4 right-4 z-50 flex items-center gap-2 font-mono text-[9px] select-none">
-                  <span className="px-2 py-0.5 bg-slate-950 border border-slate-800 text-slate-400 rounded">
+                  <span className="px-2 py-0.5 bg-obsidian border border-slate-700 text-slate-400 rounded">
                     CALIBRATED LATENCY: {Object.keys(vectorSpeeds).reduce((acc, key) => acc + (vectorSpeeds[key] || 0), 0)}ms
                   </span>
-                  <span className="px-2 py-0.5 bg-slate-950 border border-emerald-500/30 text-emerald-400 rounded block font-bold anim-pulse">
-                    STATE RESOLVER OK
+                  <span className="px-2 py-0.5 bg-obsidian border border-vortex-blue/30 text-vortex-blue rounded block font-bold anim-pulse">
+                    VORTEX RESOLVER OK
                   </span>
                   {isTopologyFullscreen && (
                     <button
@@ -808,13 +820,13 @@ export default function App() {
             {/* HIGH DENSITY MAP GRAPH WITH FULL MICROSERVICE REGISTRIES & PAN/ZOOM CAPABILITIES */}
             
             {/* Mode selection floating pill */}
-            <div className="absolute top-16 left-4 z-30 flex border border-slate-800 bg-slate-950/85 rounded-lg p-1 text-[9.5px] select-none shadow-xl backdrop-blur-md">
+            <div className="absolute top-16 left-4 z-30 flex border border-slate-700 bg-obsidian/90 rounded-lg p-1 text-[9.5px] select-none shadow-xl backdrop-blur-md">
               <button
                 type="button"
                 onClick={() => setDiagramMode('standard')}
                 className={`flex items-center gap-1.5 px-3 py-1 rounded transition-all font-bold uppercase ${
                   diagramMode === 'standard'
-                    ? 'bg-slate-800 border border-slate-755 text-emerald-400 shadow-inner'
+                    ? 'bg-slate-800 border border-slate-700 text-vortex-blue shadow-inner'
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
@@ -825,7 +837,7 @@ export default function App() {
                 onClick={() => setDiagramMode('detailed')}
                 className={`flex items-center gap-1.5 px-3 py-1 rounded transition-all font-bold uppercase ${
                   diagramMode === 'detailed'
-                    ? 'bg-slate-800 border border-slate-755 text-cyan-400 shadow-inner'
+                    ? 'bg-slate-800 border border-slate-700 text-vortex-blue shadow-inner'
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
@@ -834,14 +846,14 @@ export default function App() {
             </div>
 
             {/* Floating zoom controls overlay panel */}
-            <div className="absolute bottom-4 right-4 z-40 flex items-center gap-2 bg-slate-950/90 border border-slate-800/80 rounded-lg p-2 select-none shadow-2xl backdrop-blur-md">
+            <div className="absolute bottom-4 right-4 z-40 flex items-center gap-2 bg-obsidian/95 border border-slate-700 rounded-lg p-2 select-none shadow-2xl backdrop-blur-md">
               {/* Pan Navigation direction fallbacks */}
-              <div className="grid grid-cols-3 gap-0.5 mr-2 border-r border-slate-800 pr-2">
+              <div className="grid grid-cols-3 gap-0.5 mr-2 border-r border-slate-700 pr-2">
                 <div />
                 <button
                   type="button"
                   onClick={() => setPan(p => ({ ...p, y: p.y + 40 }))}
-                  className="p-1 text-[8px] bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded border border-slate-850 font-bold"
+                  className="p-1 text-[8px] bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded border border-slate-700 font-bold"
                   title="Pan Up"
                 >
                   ▲
@@ -851,7 +863,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setPan(p => ({ ...p, x: p.x + 40 }))}
-                  className="p-1 text-[8px] bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded border border-slate-850 font-bold"
+                  className="p-1 text-[8px] bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded border border-slate-700 font-bold"
                   title="Pan Left"
                 >
                   ◀
@@ -859,7 +871,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => { setZoom(0.65); setPan({ x: 20, y: 10 }); }}
-                  className="p-1 text-[8.5px] bg-slate-900 hover:bg-slate-850 text-emerald-400 hover:text-emerald-300 rounded border border-slate-850 font-black"
+                  className="p-1 text-[8.5px] bg-slate-800 hover:bg-slate-700 text-vortex-blue hover:text-vortex-blue/80 rounded border border-slate-700 font-black"
                   title="Center Viewport (Reset)"
                 >
                   ●
@@ -867,7 +879,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setPan(p => ({ ...p, x: p.x - 40 }))}
-                  className="p-1 text-[8px] bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded border border-slate-850 font-bold"
+                  className="p-1 text-[8px] bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded border border-slate-700 font-bold"
                   title="Pan Right"
                 >
                   ▶
@@ -877,7 +889,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setPan(p => ({ ...p, y: p.y - 40 }))}
-                  className="p-1 text-[8px] bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded border border-slate-850 font-bold"
+                  className="p-1 text-[8px] bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded border border-slate-700 font-bold"
                   title="Pan Down"
                 >
                   ▼
@@ -887,13 +899,13 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setZoom(z => Math.max(z - 0.15, 0.4))}
-                className="p-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded text-slate-300 transition-colors"
+                className="p-1.5 bg-slate-850 hover:bg-slate-800 border border-slate-700 rounded text-slate-300 transition-colors"
                 title="Zoom Out (-15%)"
               >
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
               
-              <span className="font-mono text-[9px] text-white bg-slate-900 px-2 py-1 rounded border border-slate-800 font-bold shrink-0 min-w-[42px] text-center">
+              <span className="font-mono text-[9px] text-white bg-slate-800 px-2 py-1 rounded border border-slate-700 font-bold shrink-0 min-w-[42px] text-center">
                 {Math.round(zoom * 100)}%
               </span>
               
@@ -923,7 +935,7 @@ export default function App() {
                 className={`px-2 py-1.5 border rounded text-[9px] font-mono font-bold transition-all ${
                   isTopologyFullscreen
                     ? 'bg-red-950/40 border-red-500/40 text-red-400 hover:bg-red-900/30'
-                    : 'bg-slate-900 hover:bg-slate-800 border border-slate-800 text-cyan-400 hover:text-cyan-300'
+                    : 'bg-slate-800 hover:bg-slate-700 border border-slate-700 text-vortex-blue hover:text-vortex-blue/80'
                 }`}
                 title="Toggle Fullscreen Modal View"
               >
@@ -939,12 +951,12 @@ export default function App() {
               onMouseUp={handleMouseUpOrLeave}
               onMouseLeave={handleMouseUpOrLeave}
               onDoubleClick={() => { setZoom(0.65); setPan({ x: 20, y: 10 }); }}
-              className={`flex-1 relative w-full h-full min-h-[560px] border border-slate-800/65 bg-slate-950/20 rounded-xl overflow-hidden select-none transition-shadow ${
+              className={`flex-1 relative w-full h-full min-h-[560px] border border-slate-700 bg-obsidian rounded-xl overflow-hidden select-none transition-shadow ${
                 isDragging ? 'cursor-grabbing shadow-[inset_0_0_50px_rgba(0,0,0,0.95)]' : 'cursor-grab'
               }`}
             >
               {/* Instructions Prompt Overlay */}
-              <div className="absolute bottom-3 left-4 z-20 font-mono text-[9px] text-slate-500 pointer-events-none flex items-center gap-1.5 bg-slate-950/70 px-2.5 py-1 rounded border border-slate-900">
+              <div className="absolute bottom-3 left-4 z-20 font-mono text-[9px] text-slate-500 pointer-events-none flex items-center gap-1.5 bg-obsidian border border-slate-700 px-2.5 py-1 rounded">
                 <Move className="w-3.5 h-3.5 text-slate-400" />
                 <span>Drag background to pan • Scroll / gestures to zoom • Double click to center</span>
               </div>
@@ -1131,39 +1143,39 @@ export default function App() {
                 })()
               )}
 
-              {/* GRAPH NODES (WITH CONDITIONAL ENLARGEMENT CAPABILITY) */}
+               {/* GRAPH NODES (WITH CONDITIONAL ENLARGEMENT CAPABILITY) */}
               {nodes.filter(n => phaseNodeCoords[activePhase][n.id] !== undefined).map((node) => {
                 const isSelected = selectedNodeId === node.id;
                 const isCurrentTracerTarget = tracer.currentNodeId === node.id;
                 
-                let outlineColor = 'border-slate-800 bg-slate-950/90 text-slate-300';
+                let outlineColor = 'border-slate-700 bg-obsidian text-slate-300';
                 let indicatorLight = 'bg-slate-600';
                 let shadowGlow = '';
 
                 if (node.status === 'LIVE') {
                   indicatorLight = 'bg-emerald-500 shadow-[0_0_10px_#10b981]';
-                  outlineColor = 'border-slate-705 bg-slate-950/90 text-slate-100';
+                  outlineColor = 'border-slate-700 bg-obsidian text-slate-100';
                 } else if (node.status === 'UNLOCKED') {
-                  indicatorLight = 'bg-indigo-500 animate-pulse';
-                  outlineColor = 'border-indigo-805 bg-slate-950/95 text-slate-205';
-                } else if (node.status === 'QUEUED_BLOCKED') {
+                  indicatorLight = 'bg-vortex-blue animate-pulse';
+                  outlineColor = 'border-indigo-500 bg-obsidian text-slate-200';
+                } else if (node.status === 'BLOCKED') {
                   indicatorLight = 'bg-red-500 animate-pulse';
                   outlineColor = 'border-red-900 bg-red-950/20 text-red-105';
                 } else if (node.status === 'NOT_STARTED') {
-                  indicatorLight = 'bg-slate-700';
-                  outlineColor = 'border-slate-900 bg-slate-950/40 text-slate-500';
+                  indicatorLight = 'bg-slate-755';
+                  outlineColor = 'border-slate-700 bg-obsidian/40 text-slate-505';
                 }
 
                 if (isCurrentTracerTarget) {
-                  outlineColor = 'border-cyan-400 bg-cyan-950/40 text-cyan-50';
-                  shadowGlow = 'shadow-[0_0_25px_rgba(34,211,238,0.3)] ring-2 ring-cyan-500/40';
+                  outlineColor = 'border-vortex-blue bg-slate-800/80 text-white';
+                  shadowGlow = 'shadow-[0_0_25px_rgba(45,111,232,0.3)] ring-2 ring-vortex-blue/40';
                 } else if (isSelected) {
-                  outlineColor = node.status === 'QUEUED_BLOCKED' 
+                  outlineColor = node.status === 'BLOCKED' 
                     ? 'border-red-500 bg-red-950/30' 
-                    : 'border-emerald-500 bg-slate-900';
-                  shadowGlow = node.status === 'QUEUED_BLOCKED' 
+                    : 'border-vortex-blue bg-slate-800';
+                  shadowGlow = node.status === 'BLOCKED' 
                     ? 'shadow-[0_0_20px_rgba(239,68,68,0.35)] ring-1 ring-red-500/50'
-                    : 'shadow-[0_0_20px_rgba(16,185,129,0.4)] ring-1 ring-emerald-500/50';
+                    : 'shadow-[0_0_20px_rgba(45,111,232,0.4)] ring-1 ring-vortex-blue/50';
                 }
 
                 const isDetailed = diagramMode === 'detailed';
@@ -1275,7 +1287,7 @@ export default function App() {
                         onClick={() => handleStartTracer('HIGH_RISK')}
                         className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-[10px] uppercase font-bold tracking-wider rounded transition-all flex items-center gap-1"
                       >
-                        <AlertTriangle className="w-3 h-3" /> Trace High-Risk Escrow
+                        <AlertTriangle className="w-3 h-3" /> Trace High-Risk Action
                       </button>
                     </>
                   ) : (
@@ -1583,15 +1595,15 @@ export default function App() {
         </main>
 
         {/* PANEL 3: RIGHT PANEL - PARAMETER INSPECTOR & NOTION DB REGISTRY */}
-        <aside id="operating-model-inspector" className="w-[316px] shrink-0 border-l border-slate-800 bg-slate-900/25 p-4 flex flex-col justify-between overflow-y-auto">
+        <aside id="operating-model-inspector" className="w-[316px] shrink-0 border-l border-slate-700 bg-midnight p-4 flex flex-col justify-between overflow-y-auto">
           
           <div className="space-y-4">
             
             {/* ITEM 1: INSPECTOR DETAILS */}
             <div id="aside-inspector-box">
-              <div className="flex items-center gap-2 mb-2 pb-1 border-b border-slate-850">
-                <Sliders className="w-3.5 h-3.5 text-emerald-400" />
-                <h3 className="text-xs font-black uppercase tracking-wider text-slate-100 font-mono">Topology Metadata HUD</h3>
+              <div className="flex items-center gap-2 mb-2 pb-1 border-b border-slate-700">
+                <Sliders className="w-3.5 h-3.5 text-vortex-blue" />
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-100 font-mono">VORTEX METADATA HUD</h3>
               </div>
 
               {selectedNodeId ? (
@@ -1613,9 +1625,9 @@ export default function App() {
                       </div>
 
                       <p className="text-[10.5px] text-slate-400 leading-snug">
-                        {node.id === 'Content' && 'Gateway receiver managing ingress file streams and dividing content blocks into cryptographically mapped schema elements.'}
+                        {node.id === 'Content' && 'Gateway receiver managing ingress file streams and dividing content blocks into validated schema elements.'}
                         {node.id === 'NotionDB' && 'Central in-memory Relational Core simulating attributes mappings, schema properties, and phase checklists connected with Notion API.'}
-                        {node.id === 'Governance' && 'Escrow review vault demanding consensus votes from active signers of Pod A before authorizing distribution cache releases.'}
+                        {node.id === 'Governance' && 'Strategic review panel requiring human founder verification on L1 before validating or routing outputs.'}
                         {node.id === 'RiskRouting' && 'Heuristic audit sandbox parsing anomalies through multi-tier rulesets to confirm security checkpoints are verified.'}
                         {node.id === 'Distribution' && 'Edge content delivery node finalizing archive synchronization weights over Akamai Edge CDN lines.'}
                       </p>
@@ -1867,11 +1879,11 @@ export default function App() {
       </div>
 
       {/* CORE FOOTER MARGIN LINES */}
-      <footer id="hud-bottom-status-line" className="h-8 shrink-0 bg-slate-900 border-t border-slate-800 flex items-center px-6 justify-between text-[9px] text-slate-500 uppercase font-mono z-10 select-none">
+      <footer id="hud-bottom-status-line" className="h-8 shrink-0 bg-slate-900 border-t border-slate-700 flex items-center px-6 justify-between text-[9px] text-slate-500 uppercase font-mono z-10 select-none">
         <div className="flex items-center gap-4">
-          <span>NETWORK INTEGRITY STATUS: <strong className="text-emerald-400 font-bold">SEC_SYNC_ESTABLISHED</strong></span>
+          <span>NETWORK INTEGRITY STATUS: <strong className="text-vortex-blue font-bold">SEC_SYNC_ESTABLISHED</strong></span>
           <span className="text-slate-800">|</span>
-          <span>POD A CONSENSUS SIGNERS: <strong className="text-emerald-400">ONLINE [2 OF 2]</strong></span>
+          <span>POD A CONSENSUS SIGNERS: <strong className="text-vortex-blue">ONLINE [2 OF 2]</strong></span>
           <span className="text-slate-800">|</span>
           <span className="hidden md:inline">Akamai CDN Edgelinks: <strong className="text-white">STANDBY_TUNNELED</strong></span>
         </div>

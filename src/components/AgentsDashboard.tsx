@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Bot, CheckCircle2, AlertTriangle, ShieldCheck, Power, RefreshCw, Cpu, Star, Server, Search } from 'lucide-react';
-import { NodeMeta } from '../types/os';
+import { NodeMeta, NodeStatus } from '../types/os';
 
 interface AgentsDashboardProps {
   nodes: NodeMeta[];
-  customNodeStatuses: Record<string, 'ONLINE' | 'QUEUED' | 'CRITICAL_BLOCKED' | 'NOT_STARTED'>;
-  setCustomNodeStatuses: React.Dispatch<React.SetStateAction<Record<string, 'ONLINE' | 'QUEUED' | 'CRITICAL_BLOCKED' | 'NOT_STARTED'>>>;
+  customNodeStatuses: Record<string, NodeStatus>;
+  setCustomNodeStatuses: React.Dispatch<React.SetStateAction<Record<string, NodeStatus>>>;
   activePhase: string;
   addLog: (source: string, level: 'info' | 'warn' | 'success' | 'error', message: string) => void;
 }
@@ -21,8 +21,16 @@ export const AgentsDashboard: React.FC<AgentsDashboardProps> = ({
   const [filterLayer, setFilterLayer] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  const getNodeLayer = (node: NodeMeta): string => {
+    const cat = node.category;
+    if (cat === 'Strategic Authority' || cat === 'Operational Governance') return 'L1';
+    if (cat === 'Workflow Orchestration' || cat === 'Intelligence / Learning') return 'L2';
+    if (cat === 'Production' || cat === 'Review / Approval' || cat === 'AI Agent') return 'L3';
+    return 'L4';
+  };
+
   const handleProvision = (nodeId: string, label: string) => {
-    setCustomNodeStatuses(prev => ({ ...prev, [nodeId]: 'ONLINE' }));
+    setCustomNodeStatuses(prev => ({ ...prev, [nodeId]: 'LIVE' }));
     addLog(
       'SYS',
       'success',
@@ -31,7 +39,7 @@ export const AgentsDashboard: React.FC<AgentsDashboardProps> = ({
   };
 
   const handleHotReload = (nodeId: string, label: string) => {
-    setCustomNodeStatuses(prev => ({ ...prev, [nodeId]: 'ONLINE' }));
+    setCustomNodeStatuses(prev => ({ ...prev, [nodeId]: 'LIVE' }));
     addLog(
       'SYS',
       'info',
@@ -61,7 +69,7 @@ export const AgentsDashboard: React.FC<AgentsDashboardProps> = ({
   const filteredNodes = nodes.filter(node => {
     const status = customNodeStatuses[node.id] || node.status;
     const catMatch = filterCategory === 'all' || node.id.includes(filterCategory) || node.role.toLowerCase().includes(filterCategory);
-    const layerMatch = filterLayer === 'all' || node.layer.toUpperCase() === filterLayer;
+    const layerMatch = filterLayer === 'all' || getNodeLayer(node) === filterLayer;
     const searchMatch = node.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
                         node.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         node.id.toLowerCase().includes(searchQuery.toLowerCase());
@@ -71,25 +79,25 @@ export const AgentsDashboard: React.FC<AgentsDashboardProps> = ({
   return (
     <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1">
       {/* HEADER BANNER */}
-      <div className="bg-gradient-to-r from-indigo-950/20 to-slate-900 border border-indigo-500/20 rounded-xl p-4 flex justify-between items-center shrink-0">
+      <div className="bg-slate-800 border border-slate-700 border-l-4 border-vortex-blue rounded-xl p-4 flex justify-between items-center shrink-0">
         <div>
-          <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest block font-mono">STAKEPORT DOMAIN AGENTS MATRIX</span>
-          <h2 className="text-sm font-black text-white uppercase tracking-tight">DOMAIN AGENTS CONTROL BOARD</h2>
+          <span className="text-[9px] font-black text-vortex-blue uppercase tracking-widest block font-mono">STAKEPORT DOMAIN AGENTS MATRIX</span>
+          <h2 className="text-sm font-black text-white uppercase tracking-tight font-sans">DOMAIN AGENTS CONTROL BOARD</h2>
           <p className="text-[11px] text-slate-400">
             Provision, status report, and telemetry verify all 29 constituent agent microservices across all four operational layers.
           </p>
         </div>
-        <div className="px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/35 text-indigo-400 font-mono text-[10px] rounded flex items-center gap-1.5 font-bold">
-          <Bot className="w-3.5 h-3.5" />
-          {nodes.filter(n => (customNodeStatuses[n.id] || n.status) === 'ONLINE').length} / {nodes.length} ONLINE
+        <div className="px-3 py-1.5 bg-vortex-blue/10 border border-vortex-blue/35 text-vortex-blue font-mono text-[10px] rounded flex items-center gap-1.5 font-bold">
+          <Bot className="w-3.5 h-3.5 text-vortex-blue animate-pulse" />
+          {nodes.filter(n => (customNodeStatuses[n.id] || n.status) === 'LIVE').length} / {nodes.length} LIVE
         </div>
       </div>
 
       {/* FILTER CONTROLS BAR */}
-      <div className="border border-slate-800 bg-slate-900/15 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shrink-0">
+      <div className="border border-slate-700 bg-midnight rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-2">
           {/* SEARCH BAR */}
-          <div className="relative bg-slate-950 rounded border border-slate-850 w-52">
+          <div className="relative bg-slate-950 rounded border border-slate-700 w-52">
             <Search className="absolute left-2 top-2 w-3.5 h-3.5 text-slate-600" />
             <input
               type="text"
@@ -101,13 +109,13 @@ export const AgentsDashboard: React.FC<AgentsDashboardProps> = ({
           </div>
 
           {/* FILTER LAYERS */}
-          <div className="flex border border-slate-800 bg-slate-950 rounded p-0.5 text-[9px] font-black uppercase">
+          <div className="flex border border-slate-700 bg-obsidian rounded p-0.5 text-[9px] font-black uppercase">
             {layers.map(lay => (
               <button
                 key={lay.id}
                 onClick={() => setFilterLayer(lay.id)}
                 className={`px-2 py-1 rounded transition-all ${
-                  filterLayer === lay.id ? 'bg-indigo-900/50 text-indigo-400' : 'text-slate-500'
+                  filterLayer === lay.id ? 'bg-vortex-blue/20 text-vortex-blue' : 'text-slate-500'
                 }`}
               >
                 {lay.label}
@@ -130,26 +138,31 @@ export const AgentsDashboard: React.FC<AgentsDashboardProps> = ({
         {filteredNodes.map(node => {
           const status = customNodeStatuses[node.id] || node.status;
           
-          let cardStyle = 'border-slate-850/80 bg-slate-950/30 text-slate-400 hover:border-slate-800';
+          let cardStyle = 'border-slate-700 bg-obsidian/30 text-slate-400 hover:border-slate-600';
           let statusLabel = 'OFFLINE';
           let indicatorCol = 'bg-slate-700';
           let statusPill = 'bg-slate-950 text-slate-600';
 
-          if (status === 'ONLINE') {
-            cardStyle = 'border-slate-800 bg-slate-950/60 shadow-md text-slate-300 hover:border-slate-700';
-            statusLabel = 'ONLINE';
-            indicatorCol = 'bg-emerald-500 shadow-[0_0_10px_#10b981]';
-            statusPill = 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30';
+          if (status === 'LIVE' || status === 'UNLOCKED') {
+            cardStyle = 'border-slate-700 bg-obsidian shadow-md text-slate-300 hover:border-slate-600';
+            statusLabel = status === 'LIVE' ? 'LIVE' : 'UNLOCKED';
+            indicatorCol = status === 'LIVE' ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : 'bg-vortex-blue shadow-[0_0_10px_#2d6fe8]';
+            statusPill = status === 'LIVE' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' : 'bg-indigo-950/30 text-indigo-400 border border-indigo-900/20';
           } else if (status === 'QUEUED') {
-            cardStyle = 'border-indigo-900/40 bg-slate-950/40 text-indigo-200';
+            cardStyle = 'border-indigo-900/50 bg-obsidian/50 text-indigo-200 hover:border-indigo-700';
             statusLabel = 'QUEUED';
             indicatorCol = 'bg-indigo-500 animate-pulse';
             statusPill = 'bg-indigo-950/30 text-indigo-400 border border-indigo-900/20';
-          } else if (status === 'CRITICAL_BLOCKED') {
+          } else if (status === 'BLOCKED') {
             cardStyle = 'border-red-900 bg-red-950/10 text-red-100 shadow-[0_0_15px_rgba(239,68,68,0.1)]';
             statusLabel = 'BLOCKER';
             indicatorCol = 'bg-red-500 animate-pulse';
             statusPill = 'bg-red-950/40 text-red-500 border border-red-900/30';
+          } else if (status === 'NOT_STARTED') {
+            cardStyle = 'border-slate-800 bg-obsidian/10 text-slate-500';
+            statusLabel = 'PLANNED';
+            indicatorCol = 'bg-slate-800';
+            statusPill = 'bg-slate-950 text-slate-605';
           }
 
           return (
@@ -157,7 +170,7 @@ export const AgentsDashboard: React.FC<AgentsDashboardProps> = ({
               <div>
                 <div className="flex justify-between items-center mb-1 select-none">
                   <span className="text-[7.5px] font-bold text-slate-500 font-mono uppercase tracking-widest">
-                    {node.layer} LEVEL AGENT
+                    {getNodeLayer(node)} LEVEL AGENT
                   </span>
                   <div className="flex items-center gap-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${indicatorCol}`}></span>
@@ -167,10 +180,10 @@ export const AgentsDashboard: React.FC<AgentsDashboardProps> = ({
                   </div>
                 </div>
 
-                <h4 className="text-[11px] font-black uppercase text-white truncate max-w-[210px]" title={node.label}>
+                <h4 className="text-[11px] font-black uppercase text-white truncate max-w-[210px] font-sans" title={node.label}>
                   {node.label}
                 </h4>
-                <p className="text-[8.5px] text-indigo-400 font-mono uppercase select-none mb-2 leading-none">
+                <p className="text-[8.5px] text-vortex-blue font-mono uppercase select-none mb-2 leading-none">
                   {node.role}
                 </p>
 
@@ -181,22 +194,22 @@ export const AgentsDashboard: React.FC<AgentsDashboardProps> = ({
                   {node.id === 'legal_reviewer' && 'Strict policy sentinel validating copyright checks, licensing and public publishing locks.'}
                   {node.id === 'executive_approver' && 'Founder authorization key vault approving high-risk and low-risk pipelines.'}
                   {node.id === 'workflow_orch_system' && 'Chief of Staff scheduling director orchestrating file transport payloads.'}
-                  {!(['content_writer', 'fact_checker', 'brand_reviewer', 'legal_reviewer', 'executive_approver', 'workflow_orch_system'].includes(node.id)) && `Constitutive micro-agent validating SOT maps schema integrations at layer ${node.layer}.`}
+                  {!(['content_writer', 'fact_checker', 'brand_reviewer', 'legal_reviewer', 'executive_approver', 'workflow_orch_system'].includes(node.id)) && `Constitutive micro-agent validating SOT maps schema integrations at layer ${getNodeLayer(node)}.`}
                 </p>
               </div>
 
               {/* ACTION TRIGGER RIGS */}
-              <div className="border-t border-slate-900/60 pt-2.5 mt-2.5 flex justify-between items-center font-mono select-none">
+              <div className="border-t border-slate-700 pt-2.5 mt-2.5 flex justify-between items-center font-mono select-none">
                 <span className="text-[8px] text-slate-500 uppercase flex items-center gap-1 truncate max-w-[124px]">
                   <Server className="w-3 h-3 text-slate-550 shrink-0" /> {node.id}.node
                 </span>
                 
                 <div className="flex items-center gap-1 z-10">
-                  {status !== 'ONLINE' ? (
+                  {status !== 'LIVE' && status !== 'UNLOCKED' ? (
                     <button
                       type="button"
                       onClick={() => handleProvision(node.id, node.label)}
-                      className="px-1.5 py-0.5 rounded bg-indigo-500 text-slate-950 hover:bg-indigo-600 transition-all text-[8px] font-bold uppercase flex items-center gap-0.5 shrink-0"
+                      className="px-1.5 py-0.5 rounded bg-vortex-blue text-white hover:bg-vortex-blue/80 transition-all text-[8px] font-bold uppercase flex items-center gap-0.5 shrink-0"
                     >
                       <Power className="w-2.5 h-2.5" /> Provision
                     </button>
@@ -204,9 +217,9 @@ export const AgentsDashboard: React.FC<AgentsDashboardProps> = ({
                     <button
                       type="button"
                       onClick={() => handleHotReload(node.id, node.label)}
-                      className="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-805 transition-all text-indigo-400 border border-slate-800 text-[8px] font-bold uppercase flex items-center gap-0.5 shrink-0 animate-none"
+                      className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 transition-all text-vortex-blue border border-slate-700 text-[8px] font-bold uppercase flex items-center gap-0.5 shrink-0 animate-none"
                     >
-                      <RefreshCw className="w-2.5 h-2.5" /> Reload
+                      <RefreshCw className="w-2.5 h-2.5 animate-spin-slow" /> Reload
                     </button>
                   )}
                 </div>

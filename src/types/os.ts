@@ -1,3 +1,5 @@
+export type NodeStatus = 'LIVE' | 'QUEUED' | 'BLOCKED' | 'NOT_STARTED' | 'UNLOCKED';
+
 export interface NodeMeta {
   id: string;
   label: string;
@@ -12,7 +14,7 @@ export interface NodeMeta {
     | 'System Infrastructure'
     | 'AI Agent';
   role: string;
-  status: 'LIVE' | 'QUEUED_BLOCKED' | 'NOT_STARTED' | 'UNLOCKED';
+  status: NodeStatus;
   hardware: string;
   backlog: number;
   isAi: boolean;

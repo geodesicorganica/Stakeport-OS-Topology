@@ -14,9 +14,9 @@ export const seededAgents: Agent[] = [
     ],
     forbiddenActions: [
       'Publish content directly to CMS',
-      'Authorize money transfers without CEO human multi-sig check'
+      'Authorize budget allocations without CEO human-in-the-loop review and validation'
     ],
-    sourceFiles: ['founder_intent_manifesto.md', 'operating_charter_v2.md'],
+    sourceFiles: ['agents/founder/AGENT.md', 'agents/founder/outputs/strategic_directives.md'],
     skills: ['Semantic Matching', 'Value Alignment Guard', 'Constraint Verification'],
     outputs: ['Mandate Directives', 'Evaluation Packets'],
     dashboardRole: 'CEO Persona AI Mirror'
@@ -37,7 +37,7 @@ export const seededAgents: Agent[] = [
       'Direct draft writing',
       'Deploy code to live servers'
     ],
-    sourceFiles: ['workflow_rules.json', 'system_roles_index.json'],
+    sourceFiles: ['agents/chief-of-staff/AGENT.md', 'agents/chief-of-staff/skills/workflow-planning/schema.json'],
     skills: ['Task Decomposition', 'Gantt Chart Builder', 'Agent Dependency Solver'],
     outputs: ['Workflow Plans', 'Dispatch Briefs'],
     dashboardRole: 'Workflow Planner & Queue Dispatcher'
@@ -57,7 +57,7 @@ export const seededAgents: Agent[] = [
       'Modify system constraints',
       'Reject Founder initiatives'
     ],
-    sourceFiles: ['sprint_rules.md'],
+    sourceFiles: ['AGENTS.md'],
     skills: ['State Coordination', 'Cron Scheduling Support'],
     outputs: ['Weekly Reports', 'Re-assignment Tokens'],
     dashboardRole: 'Pod Orchestrator (Walk Phase Locked)'
@@ -77,7 +77,7 @@ export const seededAgents: Agent[] = [
       'Write final publication copies',
       'Make public marketing assertions'
     ],
-    sourceFiles: ['research_guidelines.md'],
+    sourceFiles: ['shared/company-overview.md', 'shared/product-context.md'],
     skills: ['Web Grabbing', 'Reference Linking', 'Abstract Formulation'],
     outputs: ['Research Briefing Packets'],
     dashboardRole: 'Information Harvester (Walk Phase Locked)'
@@ -96,7 +96,7 @@ export const seededAgents: Agent[] = [
       'Publish Live',
       'Verify technical claims without Fact-Check agent'
     ],
-    sourceFiles: ['tone_and_style_bible.md'],
+    sourceFiles: ['shared/voice-and-tone.md', 'shared/messaging-pillars.md'],
     skills: ['On-Brand Synthesizer', 'Semantic Search', 'Markdown Formatter'],
     outputs: ['Markdown Draft Files'],
     dashboardRole: 'Drafting Engine (Run Phase Locked)'
@@ -114,7 +114,7 @@ export const seededAgents: Agent[] = [
     forbiddenActions: [
       'Alter core editorial truths'
     ],
-    sourceFiles: ['seo_playbook_2026.json'],
+    sourceFiles: ['shared/positioning.md', 'shared/audiences.md'],
     skills: ['Keyword Map Resolver', 'Snippet Optimizer'],
     outputs: ['SEO Tags Metadata'],
     dashboardRole: 'Search Distribution Analyst (Run Phase Locked)'

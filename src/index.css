@@ -1,1 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital,wght@0,400;1,400&family=Inter+Tight:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "DM Serif Display", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Custom Stakeport Brand Palette */
+  --color-obsidian: #0A0E1A;
+  --color-midnight: #0F1629;
+  --color-slate-800: #1A2240;
+  --color-slate-700: #243055;
+  --color-signal-navy: #1B3B8A;
+  --color-vortex-blue: #2D6FE8;
+  --color-ice: #EBF0FF;
+  --color-type-primary: #F0F4FA;
+  --color-type-secondary: #8A9BB8;
+  --color-type-muted: #4D6080;
+  --color-risk-green: #10B981;
+  --color-risk-amber: #F59E0B;
+  --color-risk-red: #EF4444;
+}
+
+/* Base resets & typography styles custom built for the brand feeling */
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-obsidian);
+  color: var(--color-type-primary);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}

@@ -16,16 +16,16 @@ export const LearningDashboard: React.FC<LearningDashboardProps> = ({
   addLog,
 }) => {
   const handleConsolidateGoal = (item: LearningLogEntry) => {
-    // 1. Toggle status to IMPLEMENTED
+    // 1. Toggle status to STAGED (Proposed)
     setLearningLog(prev =>
-      prev.map(goal => (goal.id === item.id ? { ...goal, approvalStatus: 'IMPLEMENTED' } : goal))
+      prev.map(goal => (goal.id === item.id ? { ...goal, approvalStatus: 'STAGED' } : goal))
     );
 
-    // 2. Log sync info
+    // 2. Log proposal info
     addLog(
       'DB',
-      'success',
-      `FOUNDER AGENT SOT INTEGRITY: Consolidated insight [${item.observation.substring(0, 30)}...] back to Core Policy schema.`
+      'info',
+      `MEM_UPDATE: Proposed memory update for insight [${item.observation.substring(0, 30)}...]. Staged in validation queue requiring subsequent evaluation.`
     );
   };
 
@@ -38,15 +38,15 @@ export const LearningDashboard: React.FC<LearningDashboardProps> = ({
   return (
     <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1">
       {/* HEADER BANNER */}
-      <div className="bg-gradient-to-r from-purple-950/20 to-slate-900 border border-purple-500/20 rounded-xl p-4 flex justify-between items-center shrink-0">
+      <div className="bg-slate-800 border border-slate-700 border-l-4 border-vortex-blue rounded-xl p-4 flex justify-between items-center shrink-0">
         <div>
-          <span className="text-[9px] font-black text-purple-400 uppercase tracking-widest block font-mono">STAKEPORT OPERATIONAL HEURISTICS</span>
-          <h2 className="text-sm font-black text-white uppercase tracking-tight">LEARNED INSIGHTS & REINFORCEMENTS</h2>
+          <span className="text-[9px] font-black text-vortex-blue uppercase tracking-widest block font-mono">STAKEPORT OPERATIONAL HEURISTICS</span>
+          <h2 className="text-sm font-black text-white uppercase tracking-tight font-sans">LEARNED INSIGHTS & REINFORCEMENTS</h2>
           <p className="text-[11px] text-slate-400">
             Reinforce system context on the fly by consolidating outlier traffic metrics and learnings back into the shared Source of Truth maps.
           </p>
         </div>
-        <div className="px-3 py-1.5 bg-purple-500/10 border border-purple-500/35 text-purple-400 font-mono text-[10px] rounded flex items-center gap-1.5 font-bold">
+        <div className="px-3 py-1.5 bg-vortex-blue/10 border border-vortex-blue/35 text-vortex-blue font-mono text-[10px] rounded flex items-center gap-1.5 font-bold">
           <Sparkles className="w-3.5 h-3.5" />
           {learningLog.filter(g => g.approvalStatus === 'IMPLEMENTED').length} / {learningLog.length} SYNCD
         </div>
@@ -54,10 +54,10 @@ export const LearningDashboard: React.FC<LearningDashboardProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* LEFT COLUMN: INSIGHTS DATABASE (7 Cols) */}
-        <div className="lg:col-span-7 flex flex-col h-[520px] border border-slate-800 bg-slate-900/15 rounded-xl p-4 overflow-hidden">
-          <div className="pb-2 border-b border-slate-850 mb-3 flex justify-between items-center shrink-0">
-            <span className="text-xs font-black uppercase text-purple-200 flex items-center gap-1.5">
-              <Award className="w-4 h-4 text-purple-400" /> Learned Insights Registry
+        <div className="lg:col-span-7 flex flex-col h-[520px] border border-slate-700 bg-midnight rounded-xl p-4 overflow-hidden">
+          <div className="pb-2 border-b border-slate-700 mb-3 flex justify-between items-center shrink-0">
+            <span className="text-xs font-black uppercase text-slate-200 flex items-center gap-1.5 font-sans">
+              <Award className="w-4 h-4 text-vortex-blue" /> Learned Insights Registry
             </span>
             <span className="text-[9px] text-slate-500 font-mono">Feedback telemetry buffers</span>
           </div>
@@ -73,8 +73,8 @@ export const LearningDashboard: React.FC<LearningDashboardProps> = ({
                 return (
                   <div
                     key={item.id}
-                    className={`p-3 border rounded-lg flex flex-col justify-between min-h-[110px] transition-all bg-slate-950/40 border-slate-850 ${
-                      isImplemented ? 'opacity-65 border-emerald-950/30' : 'hover:bg-slate-950/90'
+                    className={`p-3 border rounded-lg flex flex-col justify-between min-h-[110px] transition-all bg-slate-950/40 border-slate-700 ${
+                      isImplemented ? 'opacity-65 border-emerald-950/35 bg-slate-950/20' : 'hover:bg-slate-950/90'
                     }`}
                   >
                     <div>
@@ -83,7 +83,7 @@ export const LearningDashboard: React.FC<LearningDashboardProps> = ({
                           {item.observation}
                         </h4>
                         <span className={`text-[7px] font-bold font-mono px-1 rounded uppercase shrink-0 ${
-                          isImplemented ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/20' : 'bg-purple-950/30 text-purple-400 border border-purple-900/30'
+                          isImplemented ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/20' : 'bg-vortex-blue/10 text-vortex-blue border border-vortex-blue/35'
                         }`}>
                           {item.approvalStatus}
                         </span>
@@ -97,7 +97,7 @@ export const LearningDashboard: React.FC<LearningDashboardProps> = ({
                       </p>
                     </div>
 
-                    <div className="mt-2.5 pt-2 border-t border-slate-900/60 flex items-center justify-between font-mono select-none">
+                    <div className="mt-2.5 pt-2 border-t border-slate-700 flex items-center justify-between font-mono select-none">
                       <span className="text-[8px] text-slate-500 uppercase">
                         CRITERIA SOURCE: {item.source} (Match: {Math.round(item.confidence * 100)}%)
                       </span>
@@ -106,9 +106,9 @@ export const LearningDashboard: React.FC<LearningDashboardProps> = ({
                         <button
                           type="button"
                           onClick={() => handleConsolidateGoal(item)}
-                          className="px-2 py-0.5 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/30 text-[8px] uppercase font-bold flex items-center gap-0.5"
+                          className="px-2 py-0.5 rounded bg-vortex-blue hover:bg-vortex-blue/80 text-white border border-vortex-blue/30 text-[8px] uppercase font-bold flex items-center gap-0.5"
                         >
-                          Consolidate to SOT Map <ArrowRight className="w-2.5 h-2.5" />
+                          Propose Memory Update <ArrowRight className="w-2.5 h-2.5" />
                         </button>
                       )}
                     </div>
@@ -121,10 +121,10 @@ export const LearningDashboard: React.FC<LearningDashboardProps> = ({
 
         {/* RIGHT COLUMN: OUTLIERS & HEURISTIC ENGINE (5 Cols) */}
         <div className="lg:col-span-5 flex flex-col h-[520px] gap-4">
-          <div className="flex-1 border border-slate-800 bg-slate-900/15 rounded-xl p-4 overflow-y-auto">
-            <div className="pb-1.5 border-b border-slate-850 mb-3 flex items-center justify-between shrink-0">
-              <span className="text-xs font-black uppercase text-slate-200 flex items-center gap-1.5">
-                <BarChart4 className="w-4 h-4 text-purple-400 font-black shrink-0" /> Analytics Outliers Tracking
+          <div className="flex-1 border border-slate-700 bg-midnight rounded-xl p-4 overflow-y-auto">
+            <div className="pb-1.5 border-b border-slate-700 mb-3 flex items-center justify-between shrink-0">
+              <span className="text-xs font-black uppercase text-slate-200 flex items-center gap-1.5 font-sans">
+                <BarChart4 className="w-4 h-4 text-vortex-blue font-black shrink-0" /> Analytics Outliers Tracking
               </span>
               <span className="text-[8px] text-slate-500 font-mono">Live feeds</span>
             </div>
@@ -135,13 +135,13 @@ export const LearningDashboard: React.FC<LearningDashboardProps> = ({
 
             <div className="space-y-2.5">
               {outlierSpikes.map((spike, idx) => (
-                <div key={idx} className="p-3 bg-slate-1000 border border-slate-900 rounded-lg bg-slate-950/45">
+                <div key={idx} className="p-3 border border-slate-700 rounded-lg bg-slate-950/45">
                   <div className="flex justify-between items-start mb-0.5">
-                    <span className="text-[7.5px] font-bold text-purple-400 font-mono uppercase font-black uppercase">
+                    <span className="text-[7.5px] font-bold text-vortex-blue font-mono uppercase font-black uppercase animate-pulse">
                       HEURISTICS DETECT SCAN
                     </span>
                     <span className={`text-[7px] font-bold font-mono px-1 rounded uppercase ${
-                      spike.status === 'UNRESOLVED' ? 'bg-amber-950/20 text-amber-500 border border-amber-900/30' : 'bg-slate-850 text-slate-400'
+                      spike.status === 'UNRESOLVED' ? 'bg-amber-955/20 text-amber-500 border border-amber-550/30' : 'bg-slate-800 text-slate-400 border border-slate-700'
                     }`}>
                       {spike.status}
                     </span>
@@ -150,7 +150,7 @@ export const LearningDashboard: React.FC<LearningDashboardProps> = ({
                   <h5 className="text-[10.5px] font-black text-white uppercase truncate">{spike.metric}</h5>
                   <p className="text-[9.5px] text-slate-400 font-mono mt-0.5">{spike.stat}</p>
 
-                  <div className="flex justify-between items-center text-[8.5px] text-slate-500 font-mono mt-2 pt-1.5 border-t border-slate-900">
+                  <div className="flex justify-between items-center text-[8.5px] text-slate-500 font-mono mt-2 pt-1.5 border-t border-slate-700">
                     <span>Confidence Match: {spike.confidence}</span>
                   </div>
                 </div>
@@ -158,11 +158,11 @@ export const LearningDashboard: React.FC<LearningDashboardProps> = ({
             </div>
           </div>
 
-          <div className="border border-slate-800 bg-slate-900/15 rounded-xl p-4 shrink-0 space-y-2.5 font-mono text-[9.5px]">
+          <div className="border border-slate-700 bg-midnight rounded-xl p-4 shrink-0 space-y-2.5 font-mono text-[9.5px]">
             <h4 className="text-[9px] tracking-widest text-slate-500 block uppercase font-bold">
               Founder Agent Memory SOT updates loop:
             </h4>
-            <div className="bg-slate-950 p-2.5 rounded border border-slate-900 space-y-1 max-h-24 overflow-y-auto text-slate-400 text-[8.5px]">
+            <div className="bg-slate-950 p-2.5 rounded border border-slate-700 space-y-1 max-h-24 overflow-y-auto text-slate-400 text-[8.5px]">
               <div>1. Trace GA Click metrics for anomalous peaks.</div>
               <div>2. Detect content duration outlier retention metrics.</div>
               <div>3. Compile discrepancies index proposals.</div>
