@@ -1,0 +1,6 @@
+{
+  "name": "Stakeport OS",
+  "description": "A high-density network topology explorer and operating model router featuring interactive phase switching, active packet tracing simulations, and real-time risk compliance logs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
