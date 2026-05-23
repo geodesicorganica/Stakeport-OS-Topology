@@ -165,11 +165,12 @@ export default function App() {
   const [filterLogLevel, setFilterLogLevel] = useState<'all' | 'info' | 'warn' | 'success'>('all');
 
   // Interactive Map Pan/Zoom & Diagram Mode States
-  const [zoom, setZoom] = useState<number>(0.95);
-  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState<number>(0.65);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 20, y: 10 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [diagramMode, setDiagramMode] = useState<'standard' | 'detailed'>('detailed');
+  const [isTopologyFullscreen, setIsTopologyFullscreen] = useState<boolean>(false);
 
   // Zoom & Pan Handler Functions
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -756,29 +757,53 @@ export default function App() {
 
           {activeTab === 'topology' && (
             <>
+              {isTopologyFullscreen && (
+                <div
+                  id="topology-backdrop"
+                  onClick={() => setIsTopologyFullscreen(false)}
+                  className="fixed inset-0 bg-slate-950/90 [backdrop-filter:blur(8px)] z-[99]"
+                />
+              )}
               {/* VISUAL TOPOLOGY OVERLAY CANVAS CONTAINER */}
-          <section id="interactive-topology-canvas" className="flex-1 border border-slate-800 bg-slate-900/15 rounded-xl px-6 py-4 flex flex-col justify-between overflow-hidden relative shadow-[inset_0_0_35px_rgba(0,0,0,0.7)]">
-            
-            {/* Header label and key indicators */}
-            <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-              <Compass className="w-4 h-4 text-emerald-400" />
-              <div>
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block font-mono">THEME CORE MAP VIEW</span>
-                <div className="flex items-center gap-1.5 text-xs text-white uppercase font-black tracking-wider">
-                  <span>ACTIVE INTEGRATION TOPOLOGY</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+              <section
+                id="interactive-topology-canvas"
+                className={`flex flex-col justify-between overflow-hidden relative transition-all duration-300 ${
+                  isTopologyFullscreen
+                    ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] h-[90vh] max-w-7xl bg-slate-950/95 border-2 border-cyan-500/30 rounded-2xl p-6 shadow-[0_0_60px_rgba(34,211,238,0.2)] z-[100]'
+                    : 'flex-1 border border-slate-800 bg-slate-900/15 rounded-xl px-6 py-4 shadow-[inset_0_0_35px_rgba(0,0,0,0.7)]'
+                }`}
+              >
+                
+                {/* Header label and key indicators */}
+                <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+                  <Compass className="w-4 h-4 text-emerald-400" />
+                  <div>
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block font-mono">THEME CORE MAP VIEW</span>
+                    <div className="flex items-center gap-1.5 text-xs text-white uppercase font-black tracking-wider">
+                      <span>ACTIVE INTEGRATION TOPOLOGY</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="absolute top-4 right-4 z-10 flex gap-2 font-mono text-[9px] select-none">
-              <span className="px-2 py-0.5 bg-slate-950 border border-slate-800 text-slate-400 rounded">
-                CALIBRATED LATENCY: {Object.keys(vectorSpeeds).reduce((acc, key) => acc + (vectorSpeeds[key] || 0), 0)}ms
-              </span>
-              <span className="px-2 py-0.5 bg-slate-950 border border-emerald-500/30 text-emerald-400 rounded block font-bold anim-pulse">
-                STATE RESOLVER OK
-              </span>
-            </div>
+                <div className="absolute top-4 right-4 z-50 flex items-center gap-2 font-mono text-[9px] select-none">
+                  <span className="px-2 py-0.5 bg-slate-950 border border-slate-800 text-slate-400 rounded">
+                    CALIBRATED LATENCY: {Object.keys(vectorSpeeds).reduce((acc, key) => acc + (vectorSpeeds[key] || 0), 0)}ms
+                  </span>
+                  <span className="px-2 py-0.5 bg-slate-950 border border-emerald-500/30 text-emerald-400 rounded block font-bold anim-pulse">
+                    STATE RESOLVER OK
+                  </span>
+                  {isTopologyFullscreen && (
+                    <button
+                      type="button"
+                      onClick={() => setIsTopologyFullscreen(false)}
+                      className="px-2.5 py-1 bg-red-950/80 border border-red-500/40 text-red-400 hover:bg-red-950 hover:text-red-300 rounded font-bold font-sans text-[9px] flex items-center gap-1.5 transition-all shadow-[0_0_10px_rgba(239,68,68,0.2)]"
+                    >
+                      <XCircle className="w-3.5 h-3.5 text-red-500" />
+                      <span>CLOSE</span>
+                    </button>
+                  )}
+                </div>
 
             {/* HIGH DENSITY MAP GRAPH WITH FULL MICROSERVICE REGISTRIES & PAN/ZOOM CAPABILITIES */}
             
@@ -833,7 +858,7 @@ export default function App() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setZoom(1.0); setPan({ x: 0, y: 0 }); }}
+                  onClick={() => { setZoom(0.65); setPan({ x: 20, y: 10 }); }}
                   className="p-1 text-[8.5px] bg-slate-900 hover:bg-slate-850 text-emerald-400 hover:text-emerald-300 rounded border border-slate-850 font-black"
                   title="Center Viewport (Reset)"
                 >
@@ -883,11 +908,26 @@ export default function App() {
 
               <button
                 type="button"
-                onClick={() => { setZoom(1.0); setPan({ x: 0, y: 0 }); }}
-                className="px-2 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded text-[9px] font-mono text-cyan-400 font-bold hover:text-cyan-300 transition-all"
-                title="Reset Fit to Screen"
+                onClick={() => {
+                  if (!isTopologyFullscreen) {
+                    setIsTopologyFullscreen(true);
+                    setZoom(0.8);
+                    setPan({ x: 40, y: 30 });
+                    addLog('SYS', 'success', 'Expanded topology sector: standard compliance maps loaded fullscreen.');
+                  } else {
+                    setIsTopologyFullscreen(false);
+                    setZoom(0.65);
+                    setPan({ x: 20, y: 10 });
+                  }
+                }}
+                className={`px-2 py-1.5 border rounded text-[9px] font-mono font-bold transition-all ${
+                  isTopologyFullscreen
+                    ? 'bg-red-950/40 border-red-500/40 text-red-400 hover:bg-red-900/30'
+                    : 'bg-slate-900 hover:bg-slate-800 border border-slate-800 text-cyan-400 hover:text-cyan-300'
+                }`}
+                title="Toggle Fullscreen Modal View"
               >
-                FIT
+                {isTopologyFullscreen ? 'MINIMIZE' : 'FIT'}
               </button>
             </div>
 
@@ -898,7 +938,7 @@ export default function App() {
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUpOrLeave}
               onMouseLeave={handleMouseUpOrLeave}
-              onDoubleClick={() => { setZoom(1.0); setPan({ x: 0, y: 0 }); }}
+              onDoubleClick={() => { setZoom(0.65); setPan({ x: 20, y: 10 }); }}
               className={`flex-1 relative w-full h-full min-h-[560px] border border-slate-800/65 bg-slate-950/20 rounded-xl overflow-hidden select-none transition-shadow ${
                 isDragging ? 'cursor-grabbing shadow-[inset_0_0_50px_rgba(0,0,0,0.95)]' : 'cursor-grab'
               }`}
@@ -911,15 +951,17 @@ export default function App() {
 
               {/* Master transformation wrapper */}
               <div
-                className="absolute inset-0 w-full h-full origin-center select-none"
+                className="absolute top-0 left-0 origin-top-left select-none"
                 style={{
-                  transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+                  width: '1600px',
+                  height: '1000px',
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                   transition: isDragging ? 'none' : 'transform 0.1s cubic-bezier(0.1, 0.8, 0.2, 1.0)',
                 }}
               >
               
               {/* VECTORS: DIRECTIONAL SVG PATHS AND PULSES */}
-              <svg viewBox="0 0 1000 1000" className="absolute inset-0 w-full h-full pointer-events-none z-0" xmlns="http://www.w3.org/2000/svg">
+              <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none z-0" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                   {/* Directional markers to make visual flow completely visible */}
                   <marker
