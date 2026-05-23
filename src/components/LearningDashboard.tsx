@@ -43,7 +43,7 @@ export const LearningDashboard: React.FC<LearningDashboardProps> = ({
           <span className="text-[9px] font-black text-vortex-blue uppercase tracking-widest block font-mono">STAKEPORT OPERATIONAL HEURISTICS</span>
           <h2 className="text-sm font-black text-white uppercase tracking-tight font-sans">LEARNED INSIGHTS & REINFORCEMENTS</h2>
           <p className="text-[11px] text-slate-400">
-            Reinforce system context on the fly by consolidating outlier traffic metrics and learnings back into the shared Source of Truth maps.
+            Propose memory updates for human approval before anything becomes canonical. Secure and audit all system context modifications manually.
           </p>
         </div>
         <div className="px-3 py-1.5 bg-vortex-blue/10 border border-vortex-blue/35 text-vortex-blue font-mono text-[10px] rounded flex items-center gap-1.5 font-bold">
@@ -130,7 +130,7 @@ export const LearningDashboard: React.FC<LearningDashboardProps> = ({
             </div>
 
             <p className="text-[10px] text-slate-400 leading-snug mb-3">
-              Google Analytics outlier spike engagement checks are automatically surfaced in real-time. Action is recommended to secure SOT consensus.
+              Google Analytics outlier spike engagement checks are automatically surfaced in real-time. Propose memory updates for human approval before anything becomes canonical.
             </p>
 
             <div className="space-y-2.5">
@@ -166,7 +166,7 @@ export const LearningDashboard: React.FC<LearningDashboardProps> = ({
               <div>1. Trace GA Click metrics for anomalous peaks.</div>
               <div>2. Detect content duration outlier retention metrics.</div>
               <div>3. Compile discrepancies index proposals.</div>
-              <div>4. Authorize SOT updates back to Founder CEO memory.</div>
+              <div>4. Propose SOT updates for manual human review and approval.</div>
             </div>
           </div>
         </div>

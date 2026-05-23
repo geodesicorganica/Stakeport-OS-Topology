@@ -139,6 +139,6 @@ export interface LearningLogEntry {
   interpretation: string;
   confidence: number; // e.g. 0.95
   recommendedAction: string;
-  approvalStatus: 'PENDING' | 'APPROVED' | 'IMPLEMENTED';
+  approvalStatus: 'PENDING' | 'STAGED' | 'APPROVED' | 'IMPLEMENTED';
   memoryUpdateRecommended: boolean;
 }

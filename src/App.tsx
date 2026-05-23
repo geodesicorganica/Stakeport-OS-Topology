@@ -403,6 +403,18 @@ export default function App() {
     const type = tracer.type;
     const steps = activePipelineSteps;
 
+    // High risk tracer flow must stop at executive_approver pending approval.
+    if (type === 'HIGH_RISK' && steps[currentStep]?.node === 'executive_approver') {
+      const matchingApproval = approvals.find(a => a.itemPath.includes(tracer.packetName));
+      const isApproved = matchingApproval && matchingApproval.status === 'APPROVED';
+
+      if (!isApproved) {
+        setIsTracerAutoplay(false);
+        addLog('SEC', 'warn', `Tracer high-risk flow stopped at [Executive Approver]. Pending human-in-the-loop Founder approval.`);
+        return;
+      }
+    }
+
     if (currentStep < steps.length - 1) {
       const nextStepIndex = currentStep + 1;
       const nextNodeId = steps[nextStepIndex].node;
@@ -445,9 +457,17 @@ export default function App() {
     const newDbEntry: DBRecord = {
       id: customId,
       key: tracer.packetName,
-      type: tracer.type === 'LOW_RISK' ? 'Verified Low-Risk Content' : tracer.type === 'HIGH_RISK' ? 'Staged Campaign Token' : 'Learning Insight Vector',
+      type: tracer.type === 'LOW_RISK' 
+        ? 'Verified Low-Risk Content' 
+        : tracer.type === 'HIGH_RISK' 
+          ? 'Staged Campaign Token' 
+          : 'Memory Update Proposed',
       phase: activePhase.toUpperCase(),
-      status: tracer.type === 'HIGH_RISK' ? 'IN_REVIEW' : 'APPROVED',
+      status: tracer.type === 'HIGH_RISK' 
+        ? 'IN_REVIEW' 
+        : tracer.type === 'LOW_RISK' 
+          ? 'PENDING' 
+          : 'IN_REVIEW',
       latency: '2ms',
     };
     setDbRecords(prev => [newDbEntry, ...prev]);
@@ -612,7 +632,7 @@ export default function App() {
               {/* STAGES CONTAINER */}
               <div className="space-y-2">
                 {[
-                  { phase: 'crawl', label: '01 CRAWL', desc: 'Pod gate separation, basic low risk bypass pass channel enabled.' },
+                  { phase: 'crawl', label: '01 CRAWL', desc: 'Pod gate separation: manual approval gate enabled; no public publishing without founder approval.' },
                   { phase: 'walk', label: '02 WALK', desc: 'Establish human core reviews with Notion relational API sync.' },
                   { phase: 'run', label: '03 RUN', desc: 'Fully automated telemetry logs & automated dynamic threat scanning.' },
                   { phase: 'ops', label: '04 FULL OPS', desc: 'Complete decentralized autonomy & cross-pod redundant failsafes.' },

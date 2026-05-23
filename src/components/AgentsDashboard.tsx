@@ -125,7 +125,7 @@ export const AgentsDashboard: React.FC<AgentsDashboardProps> = ({
         </div>
 
         {/* BLOCKED AGENTS WARNING BANNER */}
-        {nodes.some(n => (customNodeStatuses[n.id] || n.status) === 'CRITICAL_BLOCKED') && (
+        {nodes.some(n => (customNodeStatuses[n.id] || n.status) === 'BLOCKED') && (
           <div className="px-3 py-1.5 bg-red-950/20 border border-red-900/30 text-red-400 rounded-lg text-[9.5px] font-mono flex items-center gap-1.5 animate-pulse">
             <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
             <span>DOMAIN AGENT MISSING BLOCKED: ACTION REQUIRED</span>

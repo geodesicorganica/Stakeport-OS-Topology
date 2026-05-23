@@ -7,7 +7,7 @@ interface TaskItem {
   stage: string;
   risk: 'LOW' | 'HIGH';
   assignedTo: string;
-  status: 'PENDING' | 'DRAFTING' | 'REVIEWING' | 'APPROVED';
+  status: 'PENDING' | 'DRAFTING' | 'REVIEWING' | 'APPROVED' | 'PASSED_VALIDATION';
 }
 
 interface WorkflowsDashboardProps {
@@ -42,7 +42,7 @@ export const WorkflowsDashboard: React.FC<WorkflowsDashboardProps> = ({
     { id: 'task-101', name: 'shared/audiences.md', stage: 'Planning', risk: 'LOW', assignedTo: 'chief_of_staff', status: 'APPROVED' },
     { id: 'task-102', name: 'shared/value-propositions.md', stage: 'Planning', risk: 'LOW', assignedTo: 'chief_of_staff', status: 'APPROVED' },
     { id: 'task-103', name: 'recommendation_packet.md', stage: 'Review & Guard', risk: 'HIGH', assignedTo: 'founder_ceo', status: 'PENDING' },
-    { id: 'task-104', name: 'constraints_check.md', stage: 'Verity Audit', risk: 'HIGH', assignedTo: 'fact_checker', status: 'APPROVED' },
+    { id: 'task-104', name: 'constraints_check.md', stage: 'Verity Audit', risk: 'HIGH', assignedTo: 'fact_checker', status: 'PASSED_VALIDATION' },
   ];
 
   return (
@@ -142,6 +142,10 @@ export const WorkflowsDashboard: React.FC<WorkflowsDashboardProps> = ({
                   statusBadge = 'bg-red-950/40 text-red-500 border border-red-900/30 animate-pulse';
                 } else if (task.status === 'REVIEWING') {
                   statusBadge = 'bg-vortex-blue/20 text-vortex-blue border border-vortex-blue/35';
+                } else if (task.status === 'PASSED_VALIDATION') {
+                  statusBadge = 'bg-emerald-950/35 text-emerald-400 border border-emerald-900/20';
+                } else if (task.status === 'APPROVED') {
+                  statusBadge = 'bg-emerald-950/45 text-emerald-400 border border-emerald-800/40';
                 }
 
                 return (
