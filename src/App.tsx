@@ -286,6 +286,24 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [tracer.active, tracer.step, isTracerAutoplay]);
 
+  // Handle Escape key to exit fullscreen
+  useEffect(() => {
+    if (!isTopologyFullscreen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsTopologyFullscreen(false);
+        setZoom(0.65);
+        setPan({ x: 20, y: 10 });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isTopologyFullscreen]);
+
   const addLog = (source: 'SYS' | 'POD' | 'SEC' | 'DB', level: 'info' | 'warn' | 'error' | 'success', message: string) => {
     const timeStr = new Date().toISOString().slice(11, 19);
     const newLog: LogEntry = {
@@ -792,7 +810,11 @@ export default function App() {
               {isTopologyFullscreen && (
                 <div
                   id="topology-backdrop"
-                  onClick={() => setIsTopologyFullscreen(false)}
+                  onClick={() => {
+                    setIsTopologyFullscreen(false);
+                    setZoom(0.65);
+                    setPan({ x: 20, y: 10 });
+                  }}
                   className="fixed inset-0 bg-obsidian/90 [backdrop-filter:blur(8px)] z-[99]"
                 />
               )}
@@ -801,7 +823,7 @@ export default function App() {
                 id="interactive-topology-canvas"
                 className={`flex flex-col justify-between overflow-hidden relative transition-all duration-300 ${
                   isTopologyFullscreen
-                    ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] h-[90vh] max-w-7xl bg-obsidian/95 border-2 border-vortex-blue/30 rounded-2xl p-6 shadow-[0_0_60px_rgba(45,111,232,0.2)] z-[100]'
+                    ? 'fixed inset-0 w-screen h-screen bg-obsidian border-0 rounded-none p-4 z-[100]'
                     : 'flex-1 border border-slate-700 bg-midnight rounded-xl px-6 py-4 shadow-[inset_0_0_35px_rgba(0,0,0,0.7)]'
                 }`}
               >
@@ -817,7 +839,7 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-
+                
                 <div className="absolute top-4 right-4 z-50 flex items-center gap-2 font-mono text-[9px] select-none">
                   <span className="px-2 py-0.5 bg-obsidian border border-slate-700 text-slate-400 rounded">
                     CALIBRATED LATENCY: {Object.keys(vectorSpeeds).reduce((acc, key) => acc + (vectorSpeeds[key] || 0), 0)}ms
@@ -828,7 +850,11 @@ export default function App() {
                   {isTopologyFullscreen && (
                     <button
                       type="button"
-                      onClick={() => setIsTopologyFullscreen(false)}
+                      onClick={() => {
+                        setIsTopologyFullscreen(false);
+                        setZoom(0.65);
+                        setPan({ x: 20, y: 10 });
+                      }}
                       className="px-2.5 py-1 bg-red-950/80 border border-red-500/40 text-red-400 hover:bg-red-950 hover:text-red-300 rounded font-bold font-sans text-[9px] flex items-center gap-1.5 transition-all shadow-[0_0_10px_rgba(239,68,68,0.2)]"
                     >
                       <XCircle className="w-3.5 h-3.5 text-red-500" />
@@ -890,7 +916,15 @@ export default function App() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setZoom(0.65); setPan({ x: 20, y: 10 }); }}
+                  onClick={() => {
+                    if (isTopologyFullscreen) {
+                      setZoom(0.55);
+                      setPan({ x: 0, y: 0 });
+                    } else {
+                      setZoom(0.65);
+                      setPan({ x: 20, y: 10 });
+                    }
+                  }}
                   className="p-1 text-[8.5px] bg-slate-800 hover:bg-slate-700 text-vortex-blue hover:text-vortex-blue/80 rounded border border-slate-700 font-black"
                   title="Center Viewport (Reset)"
                 >
@@ -943,8 +977,8 @@ export default function App() {
                 onClick={() => {
                   if (!isTopologyFullscreen) {
                     setIsTopologyFullscreen(true);
-                    setZoom(0.8);
-                    setPan({ x: 40, y: 30 });
+                    setZoom(0.55);
+                    setPan({ x: 0, y: 0 });
                     addLog('SYS', 'success', 'Expanded topology sector: standard compliance maps loaded fullscreen.');
                   } else {
                     setIsTopologyFullscreen(false);
@@ -957,9 +991,9 @@ export default function App() {
                     ? 'bg-red-950/40 border-red-500/40 text-red-400 hover:bg-red-900/30'
                     : 'bg-slate-800 hover:bg-slate-700 border border-slate-700 text-vortex-blue hover:text-vortex-blue/80'
                 }`}
-                title="Toggle Fullscreen Modal View"
+                title="Toggle Fullscreen View"
               >
-                {isTopologyFullscreen ? 'MINIMIZE' : 'FIT'}
+                {isTopologyFullscreen ? 'EXIT' : 'FULLSCREEN'}
               </button>
             </div>
 
@@ -970,8 +1004,16 @@ export default function App() {
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUpOrLeave}
               onMouseLeave={handleMouseUpOrLeave}
-              onDoubleClick={() => { setZoom(0.65); setPan({ x: 20, y: 10 }); }}
-              className={`flex-1 relative w-full h-full min-h-[560px] border border-slate-700 bg-obsidian rounded-xl overflow-hidden select-none transition-shadow ${
+              onDoubleClick={() => {
+                if (isTopologyFullscreen) {
+                  setZoom(0.55);
+                  setPan({ x: 0, y: 0 });
+                } else {
+                  setZoom(0.65);
+                  setPan({ x: 20, y: 10 });
+                }
+              }}
+              className={`flex-1 relative w-full ${isTopologyFullscreen ? 'h-full min-h-0' : 'h-full min-h-[560px]'} border border-slate-700 bg-obsidian rounded-xl overflow-hidden select-none transition-shadow ${
                 isDragging ? 'cursor-grabbing shadow-[inset_0_0_50px_rgba(0,0,0,0.95)]' : 'cursor-grab'
               }`}
             >
