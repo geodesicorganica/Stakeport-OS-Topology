@@ -33,33 +33,49 @@ import {
   ZoomOut,
   Maximize2,
   Move,
-  Eye
+  Eye,
+  User,
+  Bot,
+  FileText,
+  CheckCircle,
+  XCircle,
+  Lock,
+  Unlock,
+  TrendingUp,
+  BarChart2,
+  BookOpen,
+  Briefcase,
+  Layers3,
+  LockKeyhole,
+  FolderGit2,
+  Network,
+  History
 } from 'lucide-react';
 
-// Node specs dictionary
-interface NodeMeta {
-  id: 'Content' | 'Governance' | 'NotionDB' | 'Distribution' | 'RiskRouting';
-  label: string;
-  podLabel: string;
-  role: string;
-  x: number; // visual percentage left
-  y: number; // visual percentage top
-  status: 'ONLINE' | 'STANDBY' | 'DEGRADED';
-  hardware: string;
-  backlog: number;
-}
+import {
+  NodeMeta,
+  VectorMeta,
+  StrategicInitiative,
+  Agent,
+  Workflow as OsWorkflow,
+  Task,
+  ApprovalItem,
+  ConstraintCheck,
+  DispatchBrief,
+  LearningLogEntry
+} from './types/os';
 
-// Pathway vectors specs
-interface VectorMeta {
-  id: string;
-  from: 'Content' | 'Governance' | 'NotionDB' | 'Distribution' | 'RiskRouting';
-  to: 'Content' | 'Governance' | 'NotionDB' | 'Distribution' | 'RiskRouting';
-  label: string;
-  latencyS: number; // milliseconds
-  status: 'ACTIVE' | 'STANDBY' | 'BLOCKED';
-  phases: Array<'crawl' | 'walk' | 'run' | 'ops'>;
-  description: string;
-}
+import { phaseNodeCoords, baseNodes, baseVectors } from './data/topology';
+import { seededInitiatives } from './data/initiatives';
+import { seededAgents } from './data/agents';
+import { seededApprovals } from './data/approvals';
+import { seededWorkflows } from './data/workflows';
+import { seededLearningLog } from './data/learningLog';
+
+import { FounderDashboard } from './components/FounderDashboard';
+import { WorkflowsDashboard } from './components/WorkflowsDashboard';
+import { AgentsDashboard } from './components/AgentsDashboard';
+import { LearningDashboard } from './components/LearningDashboard';
 
 interface LogEntry {
   id: string;
@@ -80,9 +96,9 @@ interface DBRecord {
 
 interface TracerState {
   active: boolean;
-  type: 'LOW_RISK' | 'HIGH_RISK' | null;
-  step: number; // 0 to 4
-  currentNodeId: 'Content' | 'NotionDB' | 'RiskRouting' | 'Governance' | 'Distribution' | null;
+  type: 'LOW_RISK' | 'HIGH_RISK' | 'LEARNING' | null;
+  step: number;
+  currentNodeId: string | null;
   packetName: string;
   payloadSize: string;
 }
@@ -140,14 +156,16 @@ const renderSubIcon = (icon: string, className?: string) => {
 
 export default function App() {
   // Global States
-  const [activePhase, setActivePhase] = useState<'crawl' | 'walk' | 'run' | 'ops'>('walk');
-  const [selectedNodeId, setSelectedNodeId] = useState<'Content' | 'Governance' | 'NotionDB' | 'Distribution' | 'RiskRouting' | null>('NotionDB');
+  const [activePhase, setActivePhase] = useState<'crawl' | 'walk' | 'run' | 'ops'>('crawl');
+  const [activeTab, setActiveTab] = useState<'topology' | 'founder' | 'contentOs' | 'agents' | 'learning'>('topology');
+  const [customNodeStatuses, setCustomNodeStatuses] = useState<Record<string, 'ONLINE' | 'QUEUED' | 'CRITICAL_BLOCKED' | 'NOT_STARTED'>>({});
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>('founder_ceo');
   const [selectedVectorId, setSelectedVectorId] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [filterLogLevel, setFilterLogLevel] = useState<'all' | 'info' | 'warn' | 'success'>('all');
 
   // Interactive Map Pan/Zoom & Diagram Mode States
-  const [zoom, setZoom] = useState<number>(1.0);
+  const [zoom, setZoom] = useState<number>(0.95);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -182,26 +200,22 @@ export default function App() {
   };
   
   // Custom Controls
-  const [ingressRate, setIngressRate] = useState<number>(620);
+  const [ingressRate, setIngressRate] = useState<number>(120);
   const [autoEscalateRisk, setAutoEscalateRisk] = useState<boolean>(true);
   const [manualPacketName, setManualPacketName] = useState<string>('');
-  const [manualPacketRisk, setManualPacketRisk] = useState<'LOW' | 'HIGH'>('LOW');
   const [searchQuery, setSearchQuery] = useState<string>('');
   
   // Custom interactive thresholds for nodes
-  const [governanceStrictness, setGovernanceStrictness] = useState<'low' | 'medium' | 'strict'>('medium');
-  const [bypassRouting, setBypassRouting] = useState<boolean>(false);
+  const [governanceStrictness, setGovernanceStrictness] = useState<'low' | 'medium' | 'strict'>('strict');
   const [cdnCaching, setCdnCaching] = useState<boolean>(true);
+  const [vectorSpeeds, setVectorSpeeds] = useState<Record<string, number>>({});
 
-  // Dynamic vector speeds which players can configure
-  const [vectorSpeeds, setVectorSpeeds] = useState<Record<string, number>>({
-    'Content_NotionDB': 12,
-    'NotionDB_Governance': 18,
-    'Governance_Distribution': 15,
-    'NotionDB_Distribution': 8,
-    'NotionDB_RiskRouting': 28,
-    'RiskRouting_Governance': 22,
-  });
+  // Core Stakeport Dynamic State Registers
+  const [initiatives, setInitiatives] = useState<StrategicInitiative[]>(seededInitiatives);
+  const [agents, setAgents] = useState<Agent[]>(seededAgents);
+  const [approvals, setApprovals] = useState<ApprovalItem[]>(seededApprovals);
+  const [workflows, setWorkflows] = useState<OsWorkflow[]>(seededWorkflows);
+  const [learningLog, setLearningLog] = useState<LearningLogEntry[]>(seededLearningLog);
 
   // Step-by-Step Tracer engine state
   const [tracer, setTracer] = useState<TracerState>({
@@ -214,37 +228,35 @@ export default function App() {
   });
   const [isTracerAutoplay, setIsTracerAutoplay] = useState<boolean>(false);
 
-  // Simulated DB Store
+  // Seeded DB Store (simulating shared memory registries)
   const [dbRecords, setDbRecords] = useState<DBRecord[]>([
-    { id: 'rec-101', key: 'Crawl_Foundational_Topology.asset', type: 'Static Graph', phase: 'Crawl', status: 'APPROVED', latency: '12ms' },
-    { id: 'rec-102', key: 'Governance_Consensus_Sigs.json', type: 'JSON Crypt', phase: 'Crawl', status: 'APPROVED', latency: '14ms' },
-    { id: 'rec-103', key: 'Relational_Core_Notion_Sync.yaml', type: 'Database Mapping', phase: 'Walk', status: 'IN_REVIEW', latency: '22ms' },
-    { id: 'rec-104', key: 'Risk_Audit_Escrow_Guard.sh', type: 'Security Policy', phase: 'Run', status: 'PENDING', latency: '40ms' },
-    { id: 'rec-105', key: 'Decentralized_State_Proof.bin', type: 'Binary Ledger', phase: 'Ops', status: 'ARCHIVED', latency: '62ms' },
-    { id: 'rec-106', key: 'Edge_Router_Heartbeat_v2.log', type: 'System Telemetry', phase: 'Walk', status: 'APPROVED', latency: '6ms' },
+    { id: 'rec-101', key: 'brand_manifesto_v1.0.md', type: 'Markdown Source', phase: 'Crawl', status: 'APPROVED', latency: '4ms' },
+    { id: 'rec-102', key: 'operating_charter_v2.md', type: 'Markdown Source', phase: 'Crawl', status: 'APPROVED', latency: '6ms' },
+    { id: 'rec-103', key: 'website_architecture_specs.json', type: 'Schema Mappings', phase: 'Crawl', status: 'IN_REVIEW', latency: '22ms' },
+    { id: 'rec-104', key: 'seo_playbook_2026.json', type: 'JSON Ruleset', phase: 'Walk', status: 'PENDING', latency: '40ms' },
   ]);
 
-  // Phase checklist
+  // Phase compliance checklists
   const phaseGoals: Record<'crawl' | 'walk' | 'run' | 'ops', Array<{ id: string; text: string; completed: boolean }>> = {
     crawl: [
-      { id: 'tc-1', text: 'Separate Pod execution contexts & single local links', completed: true },
-      { id: 'tc-2', text: 'Configure custom low-risk fastpass bypass to egress routing', completed: true },
-      { id: 'tc-3', text: 'Set baseline manual ingress pressure mapping target', completed: true },
+      { id: 'tc-1', text: 'Lock content pipeline: founder approval required for Recommendation Packets before execution.', completed: true },
+      { id: 'tc-2', text: 'De-register and disable any direct-publish check rules.', completed: true },
+      { id: 'tc-3', text: 'Verify live Status for Founder Agent & Chief of Staff Agent.', completed: true },
     ],
     walk: [
-      { id: 'tw-1', text: 'Establish live Notion Database model schema synchronizer', completed: true },
-      { id: 'tw-2', text: 'Deploy multi-tiered human approval resolvers (L1 L2 L3)', completed: false },
-      { id: 'tw-3', text: 'Verify active consensus criteria over standard payloads', completed: false },
+      { id: 'tw-1', text: 'Deploy Sprint Manager & AI Research Agent node credentials.', completed: false },
+      { id: 'tw-2', text: 'Establish relational schema structures with active Notion database mappings.', completed: false },
+      { id: 'tw-3', text: 'Validate human executive approval token verification loops over drafts.', completed: false },
     ],
     run: [
-      { id: 'tr-1', text: 'Automate content-object capture in background pipelines', completed: false },
-      { id: 'tr-2', text: 'Enable threat inspection loops inside central Risk Routing', completed: false },
-      { id: 'tr-3', text: 'Calibrate speed latencies of active routing channels', completed: false },
+      { id: 'tr-1', text: 'Activate automated SEO keyword map crawlers and Drafting compilers.', completed: false },
+      { id: 'tr-2', text: 'Deploy Legal & Brand review constraint audits on all queued logs.', completed: false },
+      { id: 'tr-3', text: 'Route Google Analytics traffic data dynamically to the Feedback Director.', completed: false },
     ],
     ops: [
-      { id: 'to-1', text: 'Surrender temporary cryptographic master-keys for peer nodes', completed: false },
-      { id: 'to-2', text: 'Achieve fully decentralized autonomous pod consensus speeds', completed: false },
-      { id: 'to-3', text: 'Self-healing state synchronizer failsafes verification', completed: false },
+      { id: 'to-1', text: 'Achieve fully decentralized autonomous digital agent pipelines.', completed: false },
+      { id: 'to-2', text: 'Enable self-healing memory updates using automated Vector storage overrides.', completed: false },
+      { id: 'to-3', text: 'Verify cross-pod backup failsafes and decentralized executive multi-sig keys.', completed: false },
     ],
   };
 
@@ -252,9 +264,9 @@ export default function App() {
 
   // Initialize kernel logs
   useEffect(() => {
-    addLog('SYS', 'info', 'Stakeport OS core topology engine initializing...');
-    addLog('SYS', 'success', 'Kernel v2.4 initialized. Ready with High Density active parameters.');
-    addLog('DB', 'info', `Notion DB Core initialized with ${dbRecords.length} synchronized registry keys.`);
+    addLog('SYS', 'info', 'Stakeport OS Core Topology Engine starting operational crawl initialization...');
+    addLog('SYS', 'success', 'Kernel v2.5 initialized. Zero-Bypass security enforcement enabled.');
+    addLog('DB', 'info', `Shared memory registry mounted. Loaded ${dbRecords.length} system context references.`);
   }, []);
 
   // Handle auto playing tracer step intervals
@@ -280,291 +292,161 @@ export default function App() {
     setLogs((prev) => [newLog, ...prev].slice(0, 100));
   };
 
-  // Dynamic Node Positions based on activePhase to prevent overlap
-  const coordMap: Record<'crawl' | 'walk' | 'run' | 'ops', Record<string, { x: number; y: number }>> = {
-    crawl: {
-      Content: { x: 18, y: 50 },
-      NotionDB: { x: 50, y: 50 },
-      Distribution: { x: 82, y: 50 },
-      Governance: { x: 50, y: 15 },
-      RiskRouting: { x: 50, y: 85 },
-    },
-    walk: {
-      Content: { x: 16, y: 50 },
-      NotionDB: { x: 45, y: 72 },
-      Governance: { x: 45, y: 28 },
-      Distribution: { x: 84, y: 50 },
-      RiskRouting: { x: 50, y: 85 },
-    },
-    run: {
-      Content: { x: 15, y: 50 },
-      NotionDB: { x: 38, y: 50 },
-      Governance: { x: 64, y: 22 },
-      RiskRouting: { x: 64, y: 78 },
-      Distribution: { x: 88, y: 50 },
-    },
-    ops: {
-      Content: { x: 12, y: 50 },
-      NotionDB: { x: 40, y: 50 },
-      Governance: { x: 66, y: 18 },
-      RiskRouting: { x: 66, y: 82 },
-      Distribution: { x: 88, y: 50 },
-    },
-  };
+  // Dynamically computed nodes list
+  const nodes: NodeMeta[] = baseNodes.map((base) => {
+    const coords = phaseNodeCoords[activePhase][base.id] || { x: 50, y: 50, status: 'NOT_STARTED' };
+    
+    // Calculate custom backlog metric
+    let backlog = 0;
+    if (base.id === 'executive_approver') {
+      backlog = approvals.filter(a => a.status === 'PENDING').length;
+    } else if (base.id === 'workflow_orch_system') {
+      backlog = workflows.filter(w => w.status === 'ACTIVE').length;
+    } else if (base.id === 'feedback_director') {
+      backlog = learningLog.filter(l => l.approvalStatus === 'PENDING').length;
+    }
 
-  const activeNodesForPhase: Record<'crawl' | 'walk' | 'run' | 'ops', string[]> = {
-    crawl: ['Content', 'NotionDB', 'Distribution'],
-    walk: ['Content', 'NotionDB', 'Governance', 'Distribution'],
-    run: ['Content', 'NotionDB', 'Governance', 'RiskRouting', 'Distribution'],
-    ops: ['Content', 'NotionDB', 'Governance', 'RiskRouting', 'Distribution'],
-  };
+    if (tracer.currentNodeId === base.id) {
+      backlog += 1;
+    }
 
-  // Node Positions and Definitions (Dynamically calculated via activePhase)
-  const nodes: NodeMeta[] = [
-    {
-      id: 'Content',
-      label: 'Content Gateway',
-      podLabel: 'POD B',
-      role: 'Ingress Source',
-      x: coordMap[activePhase].Content.x,
-      y: coordMap[activePhase].Content.y,
-      status: 'ONLINE',
-      hardware: 'GCP-E2-Compact [Core 4]',
-      backlog: tracer.currentNodeId === 'Content' ? 1 : 0,
-    },
-    {
-      id: 'NotionDB',
-      label: 'Notion Core',
-      podLabel: 'RELATIONAL CORE',
-      role: 'Database Synchronizer',
-      x: coordMap[activePhase].NotionDB.x,
-      y: coordMap[activePhase].NotionDB.y,
-      status: 'ONLINE',
-      hardware: 'Notion API Connector',
-      backlog: dbRecords.filter(r => r.status === 'PENDING').length + (tracer.currentNodeId === 'NotionDB' ? 1 : 0),
-    },
-    {
-      id: 'Governance',
-      label: 'Governance Node',
-      podLabel: 'POD A',
-      role: 'Consensus Escrow',
-      x: coordMap[activePhase].Governance.x,
-      y: coordMap[activePhase].Governance.y,
-      status: governanceStrictness === 'strict' ? 'ONLINE' : 'STANDBY',
-      hardware: 'Consensus Signatures [Ed25519]',
-      backlog: tracer.currentNodeId === 'Governance' ? 1 : 0,
-    },
-    {
-      id: 'RiskRouting',
-      label: 'Risk Routing Unit',
-      podLabel: 'L1/L2 AUDIT',
-      role: 'Heuristic Threat Scanner',
-      x: coordMap[activePhase].RiskRouting.x,
-      y: coordMap[activePhase].RiskRouting.y,
-      status: activePhase === 'crawl' ? 'DEGRADED' : 'ONLINE',
-      hardware: 'Anomaly Heuristics v1',
-      backlog: dbRecords.filter(r => r.status === 'IN_REVIEW').length + (tracer.currentNodeId === 'RiskRouting' ? 1 : 0),
-    },
-    {
-      id: 'Distribution',
-      label: 'Distribution Outlet',
-      podLabel: 'POD C',
-      role: 'Edge Content Release',
-      x: coordMap[activePhase].Distribution.x,
-      y: coordMap[activePhase].Distribution.y,
-      status: 'ONLINE',
-      hardware: 'Akamai Edge Provider',
-      backlog: tracer.currentNodeId === 'Distribution' ? 1 : 0,
-    },
-  ];
+    return {
+      ...base,
+      x: coords.x,
+      y: coords.y,
+      status: customNodeStatuses[base.id] || coords.status,
+      backlog,
+    } as NodeMeta;
+  });
 
-  // Vectors/Connections definition
-  const vectors: VectorMeta[] = [
-    {
-      id: 'Content_NotionDB',
-      from: 'Content',
-      to: 'NotionDB',
-      label: 'Ingress Mapping Webhook',
-      latencyS: vectorSpeeds['Content_NotionDB'],
-      status: 'ACTIVE',
-      phases: ['crawl', 'walk', 'run', 'ops'],
-      description: 'Ingests raw objects from Gateway and registers metadata state directly to Relational Core.',
-    },
-    {
-      id: 'NotionDB_Distribution',
-      from: 'NotionDB',
-      to: 'Distribution',
-      label: 'Crawl Bypass Fastpass Channel',
-      latencyS: vectorSpeeds['NotionDB_Distribution'],
-      status: activePhase === 'crawl' || bypassRouting ? 'ACTIVE' : 'STANDBY',
-      phases: ['crawl', 'ops'],
-      description: 'Allows direct publishing without multi-tier approval constraints. Ideal for low risk foundational phases.',
-    },
-    {
-      id: 'NotionDB_Governance',
-      from: 'NotionDB',
-      to: 'Governance',
-      label: 'Consensus Review Pipeline',
-      latencyS: vectorSpeeds['NotionDB_Governance'],
-      status: activePhase !== 'crawl' ? 'ACTIVE' : 'BLOCKED',
-      phases: ['walk', 'run', 'ops'],
-      description: 'Transmits registered Notion schema references to Pod A signers to verify manual token approval.',
-    },
-    {
-      id: 'Governance_Distribution',
-      from: 'Governance',
-      to: 'Distribution',
-      label: 'Authorized Egress Outlet',
-      latencyS: vectorSpeeds['Governance_Distribution'],
-      status: activePhase !== 'crawl' ? 'ACTIVE' : 'BLOCKED',
-      phases: ['walk', 'run', 'ops'],
-      description: 'Signs release tokens globally to cache validated objects into global distribution networks.',
-    },
-    {
-      id: 'NotionDB_RiskRouting',
-      from: 'NotionDB',
-      to: 'RiskRouting',
-      label: 'Heuristic Threat Diverter',
-      latencyS: vectorSpeeds['NotionDB_RiskRouting'],
-      status: activePhase === 'run' || activePhase === 'ops' ? 'ACTIVE' : 'STANDBY',
-      phases: ['run', 'ops'],
-      description: 'Diverts ambiguous schema attributes or files automatically to heuristic scanner sandbox.',
-    },
-    {
-      id: 'RiskRouting_Governance',
-      from: 'RiskRouting',
-      to: 'Governance',
-      label: 'Audited Escrow Pipeline',
-      latencyS: vectorSpeeds['RiskRouting_Governance'],
-      status: activePhase === 'run' || activePhase === 'ops' ? 'ACTIVE' : 'STANDBY',
-      phases: ['run', 'ops'],
-      description: 'Provides audit logproofs to global signers for consensus processing following heuristic inspection.',
-    },
-  ];
+  // Dynamic vector filtering based on phase representation
+  const vectors: VectorMeta[] = baseVectors;
 
   // Manual trace trigger
-  const handleStartTracer = (type: 'LOW_RISK' | 'HIGH_RISK') => {
-    const defaultLowPrefixes = ['blog_post_draft.md', 'client_invoice_update.json', 'product_media_link.xml'];
-    const defaultHighPrefixes = ['emergency_core_bypass.sh', 'suspected_buffer_injection.bin', 'unsigned_payload_manifest.hex'];
+  const handleStartTracer = (type: 'LOW_RISK' | 'HIGH_RISK' | 'LEARNING') => {
+    const defaultLowPrefixes = ['recmd_packet_weekly_newsletter.json', 'content_brief_q3_campaign.json', 'draft_onboarding_guide.md'];
+    const defaultHighPrefixes = ['campaign_auth_token_0xf49.xml', 'brand_escalation_report_notion.json', 'critical_financial_recom.yaml'];
+    const defaultLearnPrefixes = ['analytics_outlier_engagement.json', 'learned_newsletter_click_trends.yaml'];
     
     const packetName = manualPacketName.trim() || (type === 'LOW_RISK' 
       ? defaultLowPrefixes[Math.floor(Math.random() * defaultLowPrefixes.length)]
-      : defaultHighPrefixes[Math.floor(Math.random() * defaultHighPrefixes.length)]
+      : type === 'HIGH_RISK'
+        ? defaultHighPrefixes[Math.floor(Math.random() * defaultHighPrefixes.length)]
+        : defaultLearnPrefixes[Math.floor(Math.random() * defaultLearnPrefixes.length)]
     );
 
-    addLog('SYS', 'info', `MANUAL TRACER DISPATCHED: Tracing ${type} flow schema for '${packetName}'.`);
+    addLog('SYS', 'info', `MANUAL STAKEPORT OS TRACER DISPATCHED: Tracing ${type} operational flow for '${packetName}'.`);
+
+    // Choose step 0 node
+    const firstNode = type === 'LOW_RISK' 
+      ? 'content_strategist' 
+      : type === 'HIGH_RISK'
+        ? 'growth_strategy'
+        : 'analytics_stack';
 
     setTracer({
       active: true,
       type,
       step: 0,
-      currentNodeId: 'Content',
+      currentNodeId: firstNode,
       packetName,
-      payloadSize: type === 'LOW_RISK' ? '12.4 KB' : '842.1 KB',
+      payloadSize: type === 'LOW_RISK' ? '14.2 KB' : type === 'HIGH_RISK' ? '128.5 KB' : '8.4 KB',
     });
     setManualPacketName('');
     setIsTracerAutoplay(false);
   };
 
-  // Step the tracer engine forward
+  const getTracerPipelineSteps = () => {
+    if (!tracer.active) return [];
+    if (tracer.type === 'HIGH_RISK') {
+      return [
+        { id: 0, label: '01 Growth Strat', node: 'growth_strategy', role: 'Campaign Strategy Owner' },
+        { id: 1, label: '02 Workflow Orch', node: 'workflow_orch_system', role: 'COS Sprint Handler' },
+        { id: 2, label: '03 Fact Check', node: 'fact_checker', role: 'Technical Compliance' },
+        { id: 3, label: '04 Brand Check', node: 'brand_reviewer', role: 'Identity Auditor' },
+        { id: 4, label: '05 Legal Review', node: 'legal_reviewer', role: 'Regulation Sentinel' },
+        { id: 5, label: '06 Executive Auth', node: 'executive_approver', role: 'Founder Approval Required' },
+        { id: 6, label: '07 Web Release', node: 'web_publisher', role: 'CMS CDN Dispatch' },
+      ];
+    } else if (tracer.type === 'LOW_RISK') {
+      return [
+        { id: 0, label: '01 CoS Plan', node: 'content_strategist', role: 'Strategic Planning' },
+        { id: 1, label: '02 Workflow Orch', node: 'workflow_orch_system', role: 'COS Sprint Handler' },
+        { id: 2, label: '03 Draft Write', node: 'content_writer', role: 'Content Writer (BLOCKED in Crawl)' },
+        { id: 3, label: '04 Fact Check', node: 'fact_checker', role: 'Verity Audit' },
+        { id: 4, label: '05 Executive Auth', node: 'executive_approver', role: 'Founder Token Verification' },
+        { id: 5, label: '06 CMS Deploy', node: 'cms', role: 'Static Site Publisher' },
+      ];
+    } else {
+      // Learning Log Path
+      return [
+        { id: 0, label: '01 GA Traffic', node: 'analytics_stack', role: 'Telemetry Collector' },
+        { id: 1, label: '02 Feed Audit', node: 'feedback_director', role: 'Discrepancy Auditor' },
+        { id: 2, label: '03 Memory Proposal', node: 'learning_log_compilers', role: 'Memory Update Compiler' },
+        { id: 3, label: '04 SOT Map Update', node: 'founder_agent', role: 'Shared Context Write' },
+      ];
+    }
+  };
+
+  const activePipelineSteps = getTracerPipelineSteps();
+
   const handleTracerAdvance = () => {
     if (!tracer.active) return;
 
     const currentStep = tracer.step;
-    const isHigh = tracer.type === 'HIGH_RISK';
+    const type = tracer.type;
+    const steps = activePipelineSteps;
 
-    // Flow sequence definitions
-    // Low Risk: Content(0) -> NotionDB(1) -> Distribution(2) [If Crawl/Bypass active] or Content(0) -> NotionDB(1) -> Governance(2) -> Distribution(3)
-    // High Risk: Content(0) -> NotionDB(1) -> RiskRouting(2) -> Governance(3) -> Distribution(4)
+    if (currentStep < steps.length - 1) {
+      const nextStepIndex = currentStep + 1;
+      const nextNodeId = steps[nextStepIndex].node;
+      setTracer(prev => ({ ...prev, step: nextStepIndex, currentNodeId: nextNodeId }));
+      
+      const sourceLogNode = steps[currentStep].node;
+      addLog('SYS', 'success', `Tracer payload [${tracer.packetName}] advanced from [${sourceLogNode}] ➔ [${nextNodeId}].`);
 
-    if (isHigh) {
-      if (currentStep === 0) {
-        // Step 1: Advance Content -> NotionDB
-        setTracer(prev => ({ ...prev, step: 1, currentNodeId: 'NotionDB' }));
-        addLog('DB', 'info', `Packet [${prevStepIdLabel(0)}] loaded into Relational Core Notion context. Triggering metadata mapping schema.`);
-      } else if (currentStep === 1) {
-        // Step 2: NotionDB -> RiskRouting
-        setTracer(prev => ({ ...prev, step: 2, currentNodeId: 'RiskRouting' }));
-        addLog('SEC', 'warn', `Threat signature alert! Diverting high-risk packet payload '${tracer.packetName}' over inspection vector directly to Risk Routing Hub.`);
-        
-        // Push record into simulated DB showing validation phase
-        const customId = `rec-gen-${Date.now()}`;
-        const newDbEntry: DBRecord = {
-          id: customId,
-          key: tracer.packetName,
-          type: 'Risk Escalation Probe',
-          phase: activePhase.toUpperCase(),
-          status: 'IN_REVIEW',
-          latency: `${vectorSpeeds['NotionDB_RiskRouting']}ms`,
-        };
-        setDbRecords(prev => [newDbEntry, ...prev]);
-      } else if (currentStep === 2) {
-        // Step 3: RiskRouting -> Governance
-        setTracer(prev => ({ ...prev, step: 3, currentNodeId: 'Governance' }));
-        addLog('POD', 'info', `Risk Evaluation parameters approved by human Sandbox Audit. Escalating verified signatures block to Governance Pod A for consensus.`);
-      } else if (currentStep === 3) {
-        // Step 4: Governance -> Distribution
-        setTracer(prev => ({ ...prev, step: 4, currentNodeId: 'Distribution' }));
-        addLog('POD', 'success', `Consensus quorum resolved! Signature approved. Dispatching authorized distribution block to Edge Outlets.`);
-      } else {
-        // Complete
-        handleTracerComplete(true);
+      if (nextNodeId === 'executive_approver') {
+        // Automatically inject an approval queue item!
+        const match = approvals.some(a => a.itemPath.includes(tracer.packetName));
+        if (!match) {
+          const newItem: ApprovalItem = {
+            id: `appr-${Date.now()}`,
+            itemType: `Pipeline Release: ${tracer.packetName}`,
+            itemPath: `/workflows/wf-tr/${tracer.packetName}`,
+            initiativeId: 'init-02',
+            approver: type === 'HIGH_RISK' ? 'Founder / CEO' : 'Chief of Staff',
+            status: 'PENDING',
+            decisionRequired: `Automatic tracing triggered verification review for content routing. Ensure bypass filters are locked.`,
+            approvalMeans: type === 'HIGH_RISK' ? 'Founder OS Authentication Prompt' : 'CO_STAFF System Key Signature',
+            riskLevel: type === 'HIGH_RISK' ? 'HIGH' : 'LOW',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          setApprovals(prev => [newItem, ...prev]);
+          addLog('SEC', 'warn', `Tracer entered [Executive Approver] - Generated PENDING Approval Item in queue.`);
+        }
       }
     } else {
-      // Low Risk Flow
-      const isCrawlOrBypass = activePhase === 'crawl' || bypassRouting;
-      if (isCrawlOrBypass) {
-        // Crawl Shortcut: Content(0) -> NotionDB(1) -> Distribution(2)
-        if (currentStep === 0) {
-          setTracer(prev => ({ ...prev, step: 1, currentNodeId: 'NotionDB' }));
-          addLog('DB', 'success', `Metadata attribute mapped successfully in Notion Core database registry. Standard pass authorized.`);
-        } else if (currentStep === 1) {
-          setTracer(prev => ({ ...prev, step: 2, currentNodeId: 'Distribution' }));
-          addLog('SYS', 'success', `Operating CRAWL-Bypass. Skipping intensive consensus stages. Transporting cached objects immediately to edge distribution outlets.`);
-        } else {
-          handleTracerComplete(false);
-        }
-      } else {
-        // Standard Walk/Run Low-Risk flow: Content(0) -> NotionDB(1) -> Governance(2) -> Distribution(3)
-        if (currentStep === 0) {
-          setTracer(prev => ({ ...prev, step: 1, currentNodeId: 'NotionDB' }));
-          addLog('DB', 'success', `Metadata mappings linked correctly inside Notion Core Relational buffers.`);
-        } else if (currentStep === 1) {
-          setTracer(prev => ({ ...prev, step: 2, currentNodeId: 'Governance' }));
-          addLog('POD', 'info', `Ingress payload verified. Forwarding structural metadata to Pod A Consensus for security check signing.`);
-        } else if (currentStep === 2) {
-          setTracer(prev => ({ ...prev, step: 3, currentNodeId: 'Distribution' }));
-          addLog('POD', 'success', `Consensus resolved instantly for low-risk object. Edge routing network distribution online.`);
-        } else {
-          handleTracerComplete(false);
-        }
-      }
+      handleTracerComplete();
     }
   };
 
-  const prevStepIdLabel = (s: number) => {
-    return `pkt-tx-${1000 + s}`;
-  };
+  const handleTracerComplete = () => {
+    addLog('SYS', 'success', `STAKEPORT OS OPERATIONAL WORKFLOW COMPLETED: Verified tracing run finished successfully for [${tracer.packetName}].`);
+    
+    // Auto insert an approved record into Notion DB simulation:
+    const customId = `rec-gen-${Date.now()}`;
+    const newDbEntry: DBRecord = {
+      id: customId,
+      key: tracer.packetName,
+      type: tracer.type === 'LOW_RISK' ? 'Verified Low-Risk Content' : tracer.type === 'HIGH_RISK' ? 'Approved Campaign Token' : 'Learning Insight Vector',
+      phase: activePhase.toUpperCase(),
+      status: 'APPROVED',
+      latency: '2ms',
+    };
+    setDbRecords(prev => [newDbEntry, ...prev]);
 
-  const handleTracerComplete = (high: boolean) => {
-    addLog('SYS', 'success', `TRANSMISSION TRACE COMPLETED SUCCESSFULLY: File '${tracer.packetName}' processed securely.`);
-    // Turn in-review to approved
-    if (high) {
-      setDbRecords(recs => recs.map(r => r.key === tracer.packetName ? { ...r, status: 'APPROVED', latency: '4ms' } : r));
-    } else {
-      // Create a successful audit DB Entry
-      const customId = `rec-gen-${Date.now()}`;
-      const newDbEntry: DBRecord = {
-        id: customId,
-        key: tracer.packetName,
-        type: 'Fastpass Content Sync',
-        phase: activePhase.toUpperCase(),
-        status: 'APPROVED',
-        latency: '3ms',
-      };
-      setDbRecords(prev => [newDbEntry, ...prev]);
-    }
-
+    // Clear tracer
     setTracer({
       active: false,
       type: null,
@@ -586,7 +468,7 @@ export default function App() {
       payloadSize: '',
     });
     setIsTracerAutoplay(false);
-    addLog('SYS', 'warn', 'Interactive pipeline trace aborted manually by operator command override.');
+    addLog('SYS', 'warn', 'Stakeport OS interactive trace session cancelled by operator.');
   };
 
   // Checklist updates on the fly
@@ -610,20 +492,16 @@ export default function App() {
     
     if (phase === 'crawl') {
       setIngressRate(120);
-      setBypassRouting(true);
-      addLog('POD', 'info', 'Crawl configurations activated: manual bypass channels forced ON, active pressure throttled to minimal debug levels.');
+      addLog('POD', 'info', 'Crawl configurations activated: Zero-Bypass security active, manual bottlenecks simulated.');
     } else if (phase === 'walk') {
       setIngressRate(480);
-      setBypassRouting(false);
-      addLog('POD', 'success', 'Walk configurations activated: Notion Core relational DB model sync online. Multi-tier checking pipelines ready.');
+      addLog('POD', 'success', 'Walk configurations activated: Notion Core relational DB model sync online.');
     } else if (phase === 'run') {
       setIngressRate(1150);
-      setBypassRouting(false);
-      addLog('POD', 'success', 'Run configurations activated: background content-object automation pipelines powered with heuristic anomaly filters.');
+      addLog('POD', 'success', 'Run configurations activated: background content automation pipelines online.');
     } else {
       setIngressRate(2420);
-      setBypassRouting(false);
-      addLog('POD', 'success', 'Fully Autonomous OPS configurations loaded: self-healing network pods redundancy consensus active.');
+      addLog('POD', 'success', 'Autonomous OPS scales active: self-healing multi-node consensus online.');
     }
   };
 
@@ -633,42 +511,10 @@ export default function App() {
     return rec.key.toLowerCase().includes(q) || rec.type.toLowerCase().includes(q) || rec.status.toLowerCase().includes(q);
   });
 
-  const getTracerPipelineSteps = () => {
-    if (!tracer.active) return [];
-    if (tracer.type === 'HIGH_RISK') {
-      return [
-        { id: 0, label: '01 Capture', node: 'Content', role: 'Gateway Ingest' },
-        { id: 1, label: '02 Map Schema', node: 'NotionDB', role: 'Relational Core Correlation' },
-        { id: 2, label: '03 Core Inspect', node: 'RiskRouting', role: 'L1/L2 Sandbox Audit' },
-        { id: 3, label: '04 Consenting', node: 'Governance', role: 'Pod A Quorum Signed' },
-        { id: 4, label: '05 Edge Release', node: 'Distribution', role: 'POD C Archive Egress' },
-      ];
-    } else {
-      // Low risk path
-      if (activePhase === 'crawl' || bypassRouting) {
-        return [
-          { id: 0, label: '01 Capture', node: 'Content', role: 'Gateway Ingest' },
-          { id: 1, label: '02 Fast Mapping', node: 'NotionDB', role: 'Instant Relational Link' },
-          { id: 2, label: '03 Instant Bypass Release', node: 'Distribution', role: 'Edge Outlet Cache' },
-        ];
-      } else {
-        return [
-          { id: 0, label: '01 Capture', node: 'Content', role: 'Gateway Ingest' },
-          { id: 1, label: '02 Map Schema', node: 'NotionDB', role: 'Relational Link' },
-          { id: 2, label: '03 Consenting', node: 'Governance', role: 'Pod A Auto Quorum' },
-          { id: 3, label: '04 Edge Release', node: 'Distribution', role: 'POD C Archive' },
-        ];
-      }
-    }
-  };
-
-  const activePipelineSteps = getTracerPipelineSteps();
-
   // Helper properties to check highlighted active vector lines on map
   const isVectorHighlighted = (from: string, to: string) => {
     if (!tracer.active) return false;
     
-    // Find index of previous node up to current step
     const stepIndex = tracer.step;
     if (stepIndex <= 0) return false;
 
@@ -849,17 +695,10 @@ export default function App() {
             <div className="space-y-1">
               <span className="text-slate-500 block text-[9.5px] uppercase">TOPOLOGY CONSTANTS:</span>
               <div className="flex justify-between items-center text-[10px]">
-                <span className="text-slate-400">CRAWL BYPASS ACTIVE:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBypassRouting(!bypassRouting);
-                    addLog('POD', 'warn', `Operating override: Crawl-Bypass channel toggled ${!bypassRouting ? 'ON' : 'OFF'}.`);
-                  }}
-                  className={`px-1 rounded text-[8px] tracking-widest font-bold underline ${bypassRouting ? 'text-emerald-400' : 'text-slate-500'}`}
-                >
-                  {bypassRouting ? 'FORCE OVERRIDE' : 'STANDARD'}
-                </button>
+                <span className="text-slate-400">BYPASS PLANK PREVENTED:</span>
+                <span className="text-emerald-400 font-bold text-[8.5px] uppercase bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-900/30 font-mono tracking-tight select-none">
+                  LOCKED ENFORCED
+                </span>
               </div>
 
               <div className="flex justify-between items-center text-[10px]">
@@ -884,7 +723,40 @@ export default function App() {
         {/* PANEL 2: MIDDLE COMPONENT - INTERACTIVE TOPOLOGY GRAPH & DISPATCH TRACER */}
         <main id="topology-visualizer-and-tracer" className="flex-1 flex flex-col p-5 gap-4 overflow-hidden relative">
           
-          {/* VISUAL TOPOLOGY OVERLAY CANVAS CONTAINER */}
+          {/* SUB-TABS SELECTOR HEADER BAR */}
+          <div className="flex border-b border-slate-800 pb-1.5 shrink-0 select-none z-10 gap-1 flex-wrap">
+            {[
+              { id: 'topology', label: 'Topology Map', icon: Compass, color: 'text-emerald-400 border-emerald-500' },
+              { id: 'founder', label: 'Founder Governance', icon: Shield, color: 'text-amber-400 border-amber-500' },
+              { id: 'contentOs', label: 'Content OS Workflows', icon: Workflow, color: 'text-cyan-400 border-cyan-500' },
+              { id: 'agents', label: 'Domain Agents Control', icon: Bot, color: 'text-indigo-400 border-indigo-500' },
+              { id: 'learning', label: 'Learned Insights', icon: Sparkles, color: 'text-purple-400 border-purple-500' },
+            ].map((tab) => {
+              const active = activeTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id as any);
+                    addLog('SYS', 'info', `Navigated to dashboard sector: ${tab.label}`);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider border-b-2 transition-all ${
+                    active
+                      ? `${tab.color} text-white bg-slate-900/40 rounded-t-lg`
+                      : 'border-transparent text-slate-500 hover:text-slate-350 hover:bg-slate-950/15'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {activeTab === 'topology' && (
+            <>
+              {/* VISUAL TOPOLOGY OVERLAY CANVAS CONTAINER */}
           <section id="interactive-topology-canvas" className="flex-1 border border-slate-800 bg-slate-900/15 rounded-xl px-6 py-4 flex flex-col justify-between overflow-hidden relative shadow-[inset_0_0_35px_rgba(0,0,0,0.7)]">
             
             {/* Header label and key indicators */}
@@ -1218,62 +1090,51 @@ export default function App() {
               )}
 
               {/* GRAPH NODES (WITH CONDITIONAL ENLARGEMENT CAPABILITY) */}
-              {nodes.filter(n => activeNodesForPhase[activePhase].includes(n.id)).map((node) => {
+              {nodes.filter(n => phaseNodeCoords[activePhase][n.id] !== undefined).map((node) => {
                 const isSelected = selectedNodeId === node.id;
                 const isCurrentTracerTarget = tracer.currentNodeId === node.id;
                 
-                let outlineColor = 'border-slate-800 bg-slate-950';
+                let outlineColor = 'border-slate-800 bg-slate-950/90 text-slate-300';
                 let indicatorLight = 'bg-slate-600';
                 let shadowGlow = '';
 
-                if (node.status === 'ONLINE') {
-                  indicatorLight = 'bg-emerald-500';
-                } else if (node.status === 'DEGRADED') {
+                if (node.status === 'LIVE') {
+                  indicatorLight = 'bg-emerald-500 shadow-[0_0_10px_#10b981]';
+                  outlineColor = 'border-slate-705 bg-slate-950/90 text-slate-100';
+                } else if (node.status === 'UNLOCKED') {
+                  indicatorLight = 'bg-indigo-500 animate-pulse';
+                  outlineColor = 'border-indigo-805 bg-slate-950/95 text-slate-205';
+                } else if (node.status === 'QUEUED_BLOCKED') {
                   indicatorLight = 'bg-red-500 animate-pulse';
+                  outlineColor = 'border-red-900 bg-red-950/20 text-red-105';
+                } else if (node.status === 'NOT_STARTED') {
+                  indicatorLight = 'bg-slate-700';
+                  outlineColor = 'border-slate-900 bg-slate-950/40 text-slate-500';
                 }
 
                 if (isCurrentTracerTarget) {
-                  outlineColor = 'border-cyan-400 bg-cyan-950/40';
+                  outlineColor = 'border-cyan-400 bg-cyan-950/40 text-cyan-50';
                   shadowGlow = 'shadow-[0_0_25px_rgba(34,211,238,0.3)] ring-2 ring-cyan-500/40';
                 } else if (isSelected) {
-                  outlineColor = node.id === 'RiskRouting' ? 'border-amber-500 bg-slate-900' : 'border-emerald-500 bg-slate-900';
-                  shadowGlow = node.id === 'RiskRouting' 
-                    ? 'shadow-[0_0_20px_rgba(245,158,11,0.35)] ring-1 ring-amber-500/50'
+                  outlineColor = node.status === 'QUEUED_BLOCKED' 
+                    ? 'border-red-500 bg-red-950/30' 
+                    : 'border-emerald-500 bg-slate-900';
+                  shadowGlow = node.status === 'QUEUED_BLOCKED' 
+                    ? 'shadow-[0_0_20px_rgba(239,68,68,0.35)] ring-1 ring-red-500/50'
                     : 'shadow-[0_0_20px_rgba(16,185,129,0.4)] ring-1 ring-emerald-500/50';
                 }
 
-                // Render Diamond shape for center NotionDB ONLY in simple standard mode
-                if (node.id === 'NotionDB' && diagramMode === 'standard') {
-                  return (
-                    <div
-                      key={node.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedNodeId(node.id);
-                        setSelectedVectorId(null);
-                      }}
-                      className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer z-20 flex items-center justify-center transition-all duration-300 pointer-events-auto"
-                      style={{ left: `${node.x}%`, top: `${node.y}%` }}
-                    >
-                      <div className={`w-32 h-32 border rotate-45 flex items-center justify-center transition-all ${outlineColor} ${shadowGlow} rounded-lg`}>
-                        <div className="-rotate-45 text-center px-1 flex flex-col items-center">
-                          <Database className={`w-6 h-6 mb-1 ${isSelected ? 'text-emerald-400' : isCurrentTracerTarget ? 'text-cyan-400' : 'text-slate-400'}`} />
-                          <span className="text-[10.5px] font-black text-white uppercase tracking-wider block leading-tight">{node.label}</span>
-                          <span className="text-[7.5px] text-slate-500 font-mono block tracking-tighter mt-1">{node.podLabel}</span>
-                          
-                          <div className="mt-1 flex items-center gap-1 select-none font-mono">
-                            <span className={`w-1.5 h-1.5 rounded-full ${indicatorLight}`}></span>
-                            <span className="text-[8px] text-slate-300 font-bold">{dbRecords.length} LOG DEFINES</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Standard rect node or enlarged full service stack card
-                const nodeMicroservices = microservices[node.id] || [];
                 const isDetailed = diagramMode === 'detailed';
+                
+                // Embedded getNodeIcon logic
+                const getNodeIconMap = (id: string, className?: string) => {
+                  if (id.includes('founder') || id.includes('ceo')) return <User className={className} />;
+                  if (id.includes('agent') || id.includes('orchestrator') || id.includes('system') || id.includes('director')) return <Bot className={className} />;
+                  if (id.includes('review') || id.includes('check') || id.includes('fact')) return <Shield className={className} />;
+                  if (id.includes('cms') || id.includes('notion') || id.includes('publish') || id.includes('web')) return <Database className={className} />;
+                  if (id.includes('planner') || id.includes('strategist') || id.includes('strategy')) return <TrendingUp className={className} />;
+                  return <Cpu className={className} />;
+                };
 
                 return (
                   <div
@@ -1283,18 +1144,20 @@ export default function App() {
                       setSelectedNodeId(node.id);
                       setSelectedVectorId(null);
                     }}
-                    className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-xl border p-3 flex flex-col justify-between transition-all duration-300 z-20 pointer-events-auto ${outlineColor} ${shadowGlow} ${
-                      isDetailed ? 'w-[185px] min-h-[165px] h-auto shadow-lg' : 'w-[114px] min-h-[92px]'
+                    className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-xl border p-2.5 flex flex-col justify-between transition-all duration-300 z-20 pointer-events-auto ${outlineColor} ${shadowGlow} ${
+                      isDetailed ? 'w-[185px] min-h-[120px] h-auto shadow-lg' : 'w-[114px] min-h-[80px]'
                     }`}
                     style={{ left: `${node.x}%`, top: `${node.y}%` }}
                   >
                     <div>
                       {/* Box header summary parameters */}
                       <div className="flex justify-between items-center mb-1 select-none">
-                        <span className="text-[7.5px] font-bold text-slate-500 font-mono tracking-tighter uppercase">{node.podLabel}</span>
+                        <span className="text-[7px] font-bold text-slate-500 font-mono tracking-tighter uppercase font-mono">
+                          {node.category.toUpperCase()}
+                        </span>
                         <div className="flex items-center gap-1">
                           {node.backlog > 0 && (
-                            <span className="bg-amber-500/20 text-amber-500 border border-amber-500/30 text-[7px] px-1 rounded animate-pulse font-bold font-mono">
+                            <span className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-[7px] px-1 rounded animate-pulse font-bold font-mono">
                               {node.backlog} OBJ
                             </span>
                           )}
@@ -1302,35 +1165,33 @@ export default function App() {
                         </div>
                       </div>
 
-                      <h4 className="text-[10px] font-black text-slate-100 uppercase tracking-tight leading-tight mb-0.5">{node.label}</h4>
-                      <p className="text-[8px] text-slate-500 font-mono uppercase mb-2 select-none">{node.role}</p>
+                      <h4 className="text-[10px] font-black uppercase tracking-tight leading-tight mb-0.5 truncate text-slate-100" title={node.label}>
+                        {node.label}
+                      </h4>
+                      <p className="text-[8px] text-slate-500 font-mono uppercase mb-1 select-none truncate">
+                        {node.role}
+                      </p>
 
-                      {/* SUB MICROSERVICES NESTED LIST IN ENLARGED FULL STACK DIRECTIVE */}
+                      {/* SKILLS CHIPS IN ENLARGED FULL STACK DIRECTIVE */}
                       {isDetailed && (
-                        <div className="mt-2.5 space-y-1 border-t border-slate-900/60 pt-2 pb-1 bg-slate-950/40 p-1.5 rounded-lg border border-slate-900 select-none">
-                          <span className="text-[7px] font-black tracking-widest text-slate-500 uppercase block font-mono mb-1">Constituent Services:</span>
-                          <div className="space-y-1">
-                            {nodeMicroservices.map((child, idx) => (
-                              <div key={idx} className="flex items-center justify-between bg-slate-950 px-1.5 py-1 rounded border border-slate-900 text-[8px] font-mono leading-none">
-                                <div className="flex items-center gap-1.5 truncate max-w-[130px]">
-                                  {renderSubIcon(child.icon, "w-2.5 h-2.5 text-cyan-400 shrink-0")}
-                                  <span className="text-slate-300 truncate tracking-tight uppercase">{child.name}</span>
-                                </div>
-                                <span className={`w-1 h-1 rounded-full ${child.status === 'ONLINE' ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`}></span>
-                              </div>
-                            ))}
+                        <div className="space-y-1 border-t border-slate-900/60 pt-1 mt-1 select-none">
+                          <div className="flex flex-wrap gap-0.5 max-h-[44px] overflow-hidden">
+                            <span className="bg-slate-900 text-cyan-400 px-1 py-0.5 rounded text-[7px] font-mono whitespace-nowrap">
+                              {node.isAi ? 'AI_AUTONOMOUS' : 'SYSTEM_ACTOR'}
+                            </span>
+                            <span className="bg-slate-900 text-slate-400 px-1 py-0.5 rounded text-[7px] font-mono whitespace-nowrap">
+                              {node.category}
+                            </span>
                           </div>
                         </div>
                       )}
                     </div>
 
-                    <div className="border-t border-slate-900/60 pt-1 mt-2 flex justify-between items-center select-none">
-                      {node.id === 'Content' && <Cpu className="w-3 h-3 text-emerald-400 font-black shrink-0" />}
-                      {node.id === 'NotionDB' && <Database className="w-3 h-3 text-emerald-400 font-black shrink-0" />}
-                      {node.id === 'Governance' && <Shield className="w-3 h-3 text-emerald-400 font-black shrink-0" />}
-                      {node.id === 'RiskRouting' && <AlertTriangle className="w-3.5 h-3.5 text-amber-550 font-black shrink-0" />}
-                      {node.id === 'Distribution' && <Layers className="w-3 h-3 text-cyan-400 font-black shrink-0" />}
-                      <span className="text-[7.5px] text-slate-400 font-mono truncate max-w-[100px]">{node.hardware.substring(0, 16)}</span>
+                    <div className="border-t border-slate-900/60 pt-1 mt-1.5 flex justify-between items-center select-none text-[8px] text-slate-500 font-mono">
+                      {getNodeIconMap(node.id, `w-3 h-3 ${isSelected ? 'text-emerald-400' : 'text-slate-400'} shrink-0`)}
+                      <span className="truncate max-w-[120px] ml-1 text-slate-400 uppercase">
+                        {node.status}
+                      </span>
                     </div>
                   </div>
                 );
@@ -1636,6 +1497,47 @@ export default function App() {
 
           </section>
 
+            </>
+          )}
+
+          {activeTab === 'founder' && (
+            <FounderDashboard
+              approvals={approvals}
+              setApprovals={setApprovals}
+              dbRecords={dbRecords}
+              setDbRecords={setDbRecords}
+              activePhase={activePhase}
+              addLog={addLog}
+              initiatives={initiatives}
+            />
+          )}
+
+          {activeTab === 'contentOs' && (
+            <WorkflowsDashboard
+              activePhase={activePhase}
+              addLog={addLog}
+            />
+          )}
+
+          {activeTab === 'agents' && (
+            <AgentsDashboard
+              nodes={nodes}
+              customNodeStatuses={customNodeStatuses}
+              setCustomNodeStatuses={setCustomNodeStatuses}
+              activePhase={activePhase}
+              addLog={addLog}
+            />
+          )}
+
+          {activeTab === 'learning' && (
+            <LearningDashboard
+              learningLog={learningLog}
+              setLearningLog={setLearningLog}
+              activePhase={activePhase}
+              addLog={addLog}
+            />
+          )}
+
         </main>
 
         {/* PANEL 3: RIGHT PANEL - PARAMETER INSPECTOR & NOTION DB REGISTRY */}
@@ -1661,7 +1563,7 @@ export default function App() {
                       <div className="flex justify-between items-start">
                         <div>
                           <h4 className="text-xs font-black text-white uppercase tracking-tight font-mono">{node.label}</h4>
-                          <span className="text-[8.5px] text-slate-500 font-mono block uppercase">{node.podLabel}</span>
+                          <span className="text-[8.5px] text-slate-500 font-mono block uppercase">{node.category}</span>
                         </div>
                         <span className="text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1 py-0.5 rounded font-bold font-mono">
                           {node.status}
