@@ -174,6 +174,7 @@ export default function App() {
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [diagramMode, setDiagramMode] = useState<'standard' | 'detailed'>('detailed');
   const [isTopologyFullscreen, setIsTopologyFullscreen] = useState<boolean>(false);
+  const [showFullscreenInspector, setShowFullscreenInspector] = useState<boolean>(true);
 
   // Zoom & Pan Handler Functions
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -569,6 +570,525 @@ export default function App() {
     return (traceSource === from && traceTarget === to);
   };
 
+  // 1. Get Node Relationships for modern topology graph inspects
+  const getNodeRelationships = (nodeId: string) => {
+    const rawIncoming = vectors.filter((v) => v.to === nodeId);
+    const rawOutgoing = vectors.filter((v) => v.from === nodeId);
+
+    const mapVector = (v: VectorMeta, direction: 'incoming' | 'outgoing') => {
+      const fromNode = nodes.find((n) => n.id === v.from);
+      const toNode = nodes.find((n) => n.id === v.to);
+      return {
+        id: v.id,
+        label: v.label,
+        from: v.from,
+        to: v.to,
+        fromLabel: fromNode ? fromNode.label : v.from,
+        toLabel: toNode ? toNode.label : v.to,
+        status: v.status,
+        latency: vectorSpeeds[v.id] || v.latencyS,
+        phases: v.phases,
+        description: v.description,
+        direction,
+      };
+    };
+
+    const incomingVectors = rawIncoming.map((v) => mapVector(v, 'incoming'));
+    const outgoingVectors = rawOutgoing.map((v) => mapVector(v, 'outgoing'));
+
+    const activeIncomingVectors = incomingVectors.filter((v) => v.phases.includes(activePhase));
+    const activeOutgoingVectors = outgoingVectors.filter((v) => v.phases.includes(activePhase));
+
+    return {
+      incomingVectors,
+      outgoingVectors,
+      activeIncomingVectors,
+      activeOutgoingVectors,
+    };
+  };
+
+  // 2. Get Node Operating Context (sensible matching rules)
+  const getNodeOperatingContext = (node: NodeMeta) => {
+    const idLower = node.id.toLowerCase();
+
+    const relatesToInitiative = (ini: StrategicInitiative) => {
+      const ownerLower = (ini.owner || '').toLowerCase();
+      const descLower = (ini.description || '').toLowerCase();
+      const nameLower = (ini.name || '').toLowerCase();
+
+      if (['chief_of_staff_agent', 'workflow_orch_system', 'sprint_manager'].includes(node.id)) {
+        if (
+          ownerLower.includes('chief') ||
+          ownerLower.includes('staff') ||
+          descLower.includes('chief') ||
+          descLower.includes('staff') ||
+          descLower.includes('orchestration')
+        )
+          return true;
+      }
+      if (['content_strategist', 'content_writer', 'designer', 'video_producer', 'ai_research_agent', 'seo_agent'].includes(node.id)) {
+        if (
+          nameLower.includes('marketing') ||
+          descLower.includes('marketing') ||
+          nameLower.includes('content') ||
+          descLower.includes('content')
+        )
+          return true;
+      }
+
+      return (
+        ownerLower.includes(idLower) ||
+        descLower.includes(idLower) ||
+        nameLower.includes(idLower) ||
+        (ini.sourceFile && ini.sourceFile.toLowerCase().includes(idLower))
+      );
+    };
+
+    const relatesToWorkflow = (wf: OsWorkflow) => {
+      const ownerAgentLower = (wf.ownerAgent || '').toLowerCase();
+      const outFolderLower = (wf.outputFolder || '').toLowerCase();
+      const rpTitleLower = (wf.recommendationPacket?.title || '').toLowerCase();
+      const rpDescLower = (wf.recommendationPacket?.description || '').toLowerCase();
+
+      if (['chief_of_staff_agent', 'workflow_orch_system', 'sprint_manager'].includes(node.id)) {
+        if (
+          ownerAgentLower.includes('chief') ||
+          ownerAgentLower.includes('staff') ||
+          outFolderLower.includes('chief') ||
+          outFolderLower.includes('staff') ||
+          outFolderLower.includes('orchestrator')
+        )
+          return true;
+      }
+      if (['content_strategist', 'content_writer', 'designer', 'video_producer', 'ai_research_agent', 'seo_agent'].includes(node.id)) {
+        if (
+          ownerAgentLower.includes('writer') ||
+          ownerAgentLower.includes('strategist') ||
+          ownerAgentLower.includes('designer') ||
+          ownerAgentLower.includes('seo') ||
+          ownerAgentLower.includes('ai_research') ||
+          rpTitleLower.includes('marketing') ||
+          rpDescLower.includes('marketing') ||
+          rpTitleLower.includes('content') ||
+          rpDescLower.includes('content')
+        )
+          return true;
+      }
+      if (['fact_checker', 'brand_reviewer', 'legal_reviewer', 'executive_approver'].includes(node.id)) {
+        if (wf.phase === 'approval' || wf.phase === 'review' || wf.constraintsCheck) return true;
+      }
+
+      return (
+        ownerAgentLower.includes(idLower) ||
+        outFolderLower.includes(idLower) ||
+        rpTitleLower.includes(idLower) ||
+        rpDescLower.includes(idLower) ||
+        (wf.id && wf.id.toLowerCase().includes(idLower))
+      );
+    };
+
+    const relatesToApproval = (app: ApprovalItem) => {
+      const approverLower = (app.approver || '').toLowerCase();
+      const pathLower = (app.itemPath || '').toLowerCase();
+      const dReqLower = (app.decisionRequired || '').toLowerCase();
+      const typeLower = (app.itemType || '').toLowerCase();
+
+      if (['founder_ceo', 'founder_agent', 'executive_approver'].includes(node.id)) {
+        if (approverLower.includes('founder') || approverLower.includes('ceo') || approverLower.includes('executive') || app.status === 'PENDING')
+          return true;
+      }
+      if (['chief_of_staff_agent', 'workflow_orch_system', 'sprint_manager'].includes(node.id)) {
+        if (approverLower.includes('chief') || approverLower.includes('staff')) return true;
+      }
+
+      return (
+        approverLower.includes(idLower) ||
+        pathLower.includes(idLower) ||
+        dReqLower.includes(idLower) ||
+        typeLower.includes(idLower)
+      );
+    };
+
+    const relatesToDispatch = (disp: DispatchBrief) => {
+      const rxLower = (disp.receivingAgent || '').toLowerCase();
+      const taskLower = (disp.task || '').toLowerCase();
+      const ctxLower = (disp.context || '').toLowerCase();
+
+      if (['chief_of_staff_agent', 'workflow_orch_system', 'sprint_manager'].includes(node.id)) {
+        if (
+          rxLower.includes('chief') ||
+          rxLower.includes('staff') ||
+          rxLower.includes('sprint') ||
+          taskLower.includes('orchestrate') ||
+          ctxLower.includes('orchestrate')
+        )
+          return true;
+      }
+      if (['content_strategist', 'content_writer', 'designer', 'video_producer', 'ai_research_agent', 'seo_agent'].includes(node.id)) {
+        if (
+          rxLower.includes('writer') ||
+          rxLower.includes('strategist') ||
+          rxLower.includes('designer') ||
+          rxLower.includes('video') ||
+          rxLower.includes('seo') ||
+          rxLower.includes('research') ||
+          taskLower.includes('website') ||
+          ctxLower.includes('website') ||
+          taskLower.includes('content') ||
+          ctxLower.includes('content')
+        )
+          return true;
+      }
+
+      return rxLower.includes(idLower) || taskLower.includes(idLower) || ctxLower.includes(idLower);
+    };
+
+    const relatesToConstraint = (con: ConstraintCheck) => {
+      const constraintLower = (con.constraint || '').toLowerCase();
+      const noteLower = (con.note || '').toLowerCase();
+      const fileLower = (con.sourceFile || '').toLowerCase();
+
+      if (['fact_checker', 'brand_reviewer', 'legal_reviewer', 'executive_approver'].includes(node.id)) {
+        return true;
+      }
+
+      return constraintLower.includes(idLower) || noteLower.includes(idLower) || fileLower.includes(idLower);
+    };
+
+    const relatesToLearning = (le: LearningLogEntry) => {
+      const srcLower = (le.source || '').toLowerCase();
+      const obsLower = (le.observation || '').toLowerCase();
+      const evLower = (le.evidence || '').toLowerCase();
+      const interpLower = (le.interpretation || '').toLowerCase();
+      const recLower = (le.recommendedAction || '').toLowerCase();
+
+      if (['analytics_stack', 'feedback_director', 'knowledge_base'].includes(node.id)) {
+        return true;
+      }
+
+      return (
+        srcLower.includes(idLower) ||
+        obsLower.includes(idLower) ||
+        evLower.includes(idLower) ||
+        interpLower.includes(idLower) ||
+        recLower.includes(idLower)
+      );
+    };
+
+    const relatesToDbRecord = (rec: any) => {
+      const keyLower = (rec.key || '').toLowerCase();
+      const typeLower = (rec.type || '').toLowerCase();
+      const statusLower = (rec.status || '').toLowerCase();
+      const valString = rec.value ? JSON.stringify(rec.value).toLowerCase() : '';
+
+      if (['analytics_stack', 'feedback_director', 'knowledge_base'].includes(node.id)) {
+        return true;
+      }
+      if (['cms', 'web_publisher', 'seo_agent', 'email_lifecycle', 'social_distributor', 'paid_media', 'pr_partner'].includes(node.id)) {
+        if (
+          keyLower.includes('publish') ||
+          keyLower.includes('release') ||
+          keyLower.includes('asset') ||
+          typeLower.includes('publish') ||
+          typeLower.includes('asset') ||
+          rec.status === 'APPROVED' ||
+          rec.status === 'PENDING'
+        )
+          return true;
+      }
+
+      return (
+        keyLower.includes(idLower) ||
+        typeLower.includes(idLower) ||
+        statusLower.includes(idLower) ||
+        valString.includes(idLower)
+      );
+    };
+
+    return {
+      relatedInitiatives: initiatives.filter(relatesToInitiative),
+      relatedWorkflows: workflows.filter(relatesToWorkflow),
+      relatedApprovals: approvals.filter(relatesToApproval),
+      relatedDispatches: dispatches.filter(relatesToDispatch),
+      relatedConstraints: constraints.filter(relatesToConstraint),
+      relatedLearningEntries: learningLog.filter(relatesToLearning),
+      relatedDbRecords: dbRecords.filter(relatesToDbRecord),
+    };
+  };
+
+  // 3. Get Selected Vector Context with packet inference
+  const getSelectedVectorContext = (vec: VectorMeta) => {
+    const fromNode = nodes.find((n) => n.id === vec.from);
+    const toNode = nodes.find((n) => n.id === vec.to);
+    const isActiveInCurrentPhase = vec.phases.includes(activePhase);
+
+    const labelLower = (vec.label || '').toLowerCase();
+    const descLower = (vec.description || '').toLowerCase();
+    const fromLower = vec.from.toLowerCase();
+    const toLower = vec.to.toLowerCase();
+
+    let packetType = 'strategy/directive';
+    if (labelLower.includes('directive') || labelLower.includes('goal') || labelLower.includes('strategic') || fromLower.includes('ceo')) {
+      packetType = 'strategy/directive';
+    } else if (labelLower.includes('recommend') || labelLower.includes('proposal') || labelLower.includes('packet')) {
+      packetType = 'recommendation packet';
+    } else if (labelLower.includes('plan') || labelLower.includes('task') || labelLower.includes('workflow')) {
+      packetType = 'workflow plan';
+    } else if (labelLower.includes('request') || labelLower.includes('audit') || labelLower.includes('gate') || toLower.includes('approver')) {
+      packetType = 'approval request';
+    } else if (labelLower.includes('review') || labelLower.includes('audit output') || labelLower.includes('output') || fromLower.includes('reviewer')) {
+      packetType = 'review output';
+    } else if (labelLower.includes('release') || labelLower.includes('token') || labelLower.includes('allow')) {
+      packetType = 'release token';
+    } else if (
+      labelLower.includes('publish') ||
+      labelLower.includes('handoff') ||
+      labelLower.includes('push') ||
+      toLower.includes('web_publisher') ||
+      toLower.includes('cms')
+    ) {
+      packetType = 'publishing handoff';
+    } else if (labelLower.includes('analytic') || labelLower.includes('telemetry') || labelLower.includes('signal') || toLower.includes('analytics')) {
+      packetType = 'analytics signal';
+    } else if (
+      labelLower.includes('learn') ||
+      labelLower.includes('memory') ||
+      labelLower.includes('update') ||
+      toLower.includes('knowledge') ||
+      toLower.includes('feedback')
+    ) {
+      packetType = 'learning/memory update';
+    }
+
+    const relatedApprovals = approvals.filter((app) => {
+      const apprLower = (app.approver || '').toLowerCase();
+      const pathLower = (app.itemPath || '').toLowerCase();
+      const typeLower = (app.itemType || '').toLowerCase();
+      const dDescLower = (app.decisionRequired || '').toLowerCase();
+      return (
+        apprLower.includes(fromLower) ||
+        apprLower.includes(toLower) ||
+        pathLower.includes(fromLower) ||
+        pathLower.includes(toLower) ||
+        typeLower.includes(fromLower) ||
+        typeLower.includes(toLower) ||
+        dDescLower.includes(fromLower) ||
+        dDescLower.includes(toLower)
+      );
+    });
+
+    const relatedWorkflows = workflows.filter((wf) => {
+      const agentLower = (wf.ownerAgent || '').toLowerCase();
+      const folderLower = (wf.outputFolder || '').toLowerCase();
+      const titleLower = (wf.recommendationPacket?.title || '').toLowerCase();
+      const dDescLower = (wf.recommendationPacket?.description || '').toLowerCase();
+      return (
+        agentLower.includes(fromLower) ||
+        agentLower.includes(toLower) ||
+        folderLower.includes(fromLower) ||
+        folderLower.includes(toLower) ||
+        titleLower.includes(fromLower) ||
+        titleLower.includes(toLower) ||
+        dDescLower.includes(fromLower) ||
+        dDescLower.includes(toLower)
+      );
+    });
+
+    const relatedInitiatives = initiatives.filter((ini) => {
+      const ownerLower = (ini.owner || '').toLowerCase();
+      const nameLower = (ini.name || '').toLowerCase();
+      const desc_Lower = (ini.description || '').toLowerCase();
+      return (
+        ownerLower.includes(fromLower) ||
+        ownerLower.includes(toLower) ||
+        nameLower.includes(fromLower) ||
+        nameLower.includes(toLower) ||
+        desc_Lower.includes(fromLower) ||
+        desc_Lower.includes(toLower)
+      );
+    });
+
+    const relatedDbRecords = dbRecords.filter((rec) => {
+      const keyLower = (rec.key || '').toLowerCase();
+      const typeLower = (rec.type || '').toLowerCase();
+      return keyLower.includes(fromLower) || keyLower.includes(toLower) || typeLower.includes(fromLower) || typeLower.includes(toLower);
+    });
+
+    return {
+      fromNode,
+      toNode,
+      isActiveInCurrentPhase,
+      relatedApprovals,
+      relatedWorkflows,
+      relatedInitiatives,
+      relatedDbRecords,
+      packetSummary: packetType,
+    };
+  };
+
+  const selectedNode = nodes.find(n => n.id === selectedNodeId) || null;
+  const selectedVector = vectors.find(v => v.id === selectedVectorId) || null;
+
+  const getNodeLabel = (id: string) => nodes.find(n => n.id === id)?.label || id;
+
+  const incomingVectors = selectedNode
+    ? vectors.filter(v => v.to === selectedNode.id)
+    : [];
+
+  const outgoingVectors = selectedNode
+    ? vectors.filter(v => v.from === selectedNode.id)
+    : [];
+
+  const relatedApprovals = selectedNode
+    ? approvals.filter(a =>
+        a.approver.toLowerCase().includes(selectedNode.label.toLowerCase()) ||
+        a.approver.toLowerCase().includes(selectedNode.role.toLowerCase()) ||
+        a.itemPath.toLowerCase().includes(selectedNode.id.toLowerCase()) ||
+        (selectedNode.id === 'executive_approver' && a.status === 'PENDING')
+      )
+    : [];
+
+  const relatedWorkflows = selectedNode
+    ? workflows.filter(w =>
+        w.ownerAgent.toLowerCase().includes(selectedNode.id.toLowerCase()) ||
+        w.outputFolder.toLowerCase().includes('chief-of-staff') ||
+        selectedNode.id === 'workflow_orch_system'
+      )
+    : [];
+
+  const relatedInitiatives = selectedNode
+    ? initiatives.filter(i =>
+        i.owner.toLowerCase().includes(selectedNode.label.toLowerCase()) ||
+        i.owner.toLowerCase().includes(selectedNode.role.toLowerCase()) ||
+        i.sourceFile.toLowerCase().includes(selectedNode.id.toLowerCase()) ||
+        (selectedNode.id === 'executive_approver' && i.currentApprovalStatus === 'PENDING_FOUNDER')
+      )
+    : [];
+
+  const renderFullscreenInspectorContent = () => {
+    if (selectedNode) {
+      const criticallyGovernedNodes = [
+        'cms', 'web_publisher', 'seo_agent', 'email_lifecycle', 
+        'social_distributor', 'paid_media', 'pr_partner'
+      ];
+      const showGovWarning = criticallyGovernedNodes.includes(selectedNode.id);
+
+      return (
+        <div className="space-y-3 text-xs text-slate-300">
+          <div className="flex justify-between items-start border-b border-slate-800 pb-2">
+            <div>
+              <h4 className="font-mono text-sm font-bold text-white">{selectedNode.label}</h4>
+              <span className="font-mono text-[10px] text-slate-500">{selectedNode.id}</span>
+            </div>
+            <span className="px-2 py-0.5 rounded text-[10px] bg-slate-800 font-mono uppercase text-slate-400">
+              {selectedNode.role}
+            </span>
+          </div>
+
+          {showGovWarning && (
+            <div className="bg-amber-950/40 border border-amber-700/50 rounded p-2 text-amber-400 text-[11px] font-mono">
+              ⚠️ GOVERNANCE CRITICAL NODE ACCESS DETECTION ACTIVE
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
+            <div><span className="text-slate-500">Category:</span> {selectedNode.category}</div>
+            <div><span className="text-slate-500">Status:</span> {selectedNode.status}</div>
+            <div className="col-span-2"><span className="text-slate-500">Type:</span> {selectedNode.isAi ? 'AI Agent' : 'Human/System'}</div>
+          </div>
+
+          {Array.isArray(selectedNode.backlog as any) && (selectedNode.backlog as any).length > 0 && (
+            <div className="border-t border-slate-900 pt-2">
+              <span className="text-slate-500 block mb-1">Backlog Tasks ({(selectedNode.backlog as any).length}):</span>
+              <ul className="list-disc pl-4 space-y-0.5 text-slate-400">
+                {(selectedNode.backlog as any).map((task: any, idx: number) => <li key={idx}>{task}</li>)}
+              </ul>
+            </div>
+          )}
+
+          <div className="border-t border-slate-900 pt-2 space-y-2">
+            <div>
+              <span className="text-slate-500 block mb-1">Incoming Edges ({incomingVectors.length}):</span>
+              <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                {incomingVectors.map((v: any) => (
+                  <div key={v.id} className="flex justify-between bg-slate-900/50 p-1 rounded font-mono text-[10px]">
+                    <span>{getNodeLabel(v.from)} → Self</span>
+                    <span className="text-slate-400">{v.status} ({(v.latency || vectorSpeeds[v.id] || v.latencyS || 'N/A')}ms)</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <span className="text-slate-500 block mb-1">Outgoing Edges ({outgoingVectors.length}):</span>
+              <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                {outgoingVectors.map((v: any) => (
+                  <div key={v.id} className="flex justify-between bg-slate-900/50 p-1 rounded font-mono text-[10px]">
+                    <span>Self → {getNodeLabel(v.to)}</span>
+                    <span className="text-slate-400">{v.status} ({(v.latency || vectorSpeeds[v.id] || v.latencyS || 'N/A')}ms)</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {(relatedApprovals.length > 0 || relatedWorkflows.length > 0 || relatedInitiatives.length > 0) && (
+            <div className="border-t border-slate-900 pt-2 space-y-1 font-mono text-[10px]">
+              {relatedApprovals.length > 0 && <div className="text-emerald-400">✓ Linked Approvals: {relatedApprovals.length} active</div>}
+              {relatedWorkflows.length > 0 && <div className="text-blue-400">⚙ Running Workflows: {relatedWorkflows.length} tracking</div>}
+              {relatedInitiatives.length > 0 && <div className="text-purple-400">⚏ Bound Initiatives: {relatedInitiatives.length} matching</div>}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (selectedVector) {
+      const isGovVector = selectedVector.to.includes('publish') || selectedVector.to.includes('distribute') || selectedVector.to === 'executive_approver';
+      const activeInCurrentPhase = selectedVector.phases.includes(activePhase);
+      const latencyVal = (selectedVector as any).latency || vectorSpeeds[selectedVector.id] || (selectedVector.latencyS * 1000);
+
+      return (
+        <div className="space-y-3 text-xs text-slate-300">
+          <div className="border-b border-slate-800 pb-2">
+            <h4 className="font-mono text-sm font-bold text-white">{selectedVector.label || 'Unnamed Vector'}</h4>
+            <span className="font-mono text-[10px] text-slate-500">{selectedVector.id}</span>
+          </div>
+
+          {isGovVector && (
+            <div className="bg-amber-950/40 border border-amber-700/50 rounded p-2 text-amber-400 text-[11px] font-mono">
+              ⚠️ CRITICAL DISTRIBUTION / EXEC ROUTE DETECTED
+            </div>
+          )}
+
+          <div className="space-y-1.5 font-mono text-[11px]">
+            <div className="flex justify-between"><span className="text-slate-500">Source:</span> <span>{getNodeLabel(selectedVector.from)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">Target:</span> <span>{getNodeLabel(selectedVector.to)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">Status:</span> <span className="text-white">{selectedVector.status}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">Latency:</span> <span>{latencyVal ? `${latencyVal}ms` : 'Immediate'}</span></div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Active Phase:</span> 
+              <span>{activeInCurrentPhase ? 'YES' : 'NO'}</span>
+            </div>
+          </div>
+
+          {selectedVector.description && (
+            <div className="bg-slate-900/40 p-2 border border-slate-800 rounded text-slate-400 text-[11px]">
+              {selectedVector.description}
+            </div>
+          )}
+
+          {((selectedVector as any).allowedPhases || selectedVector.phases) && (
+            <div className="text-[10px] font-mono text-slate-500">
+              Allowed Phases: <span className="text-slate-400">{((selectedVector as any).allowedPhases || selectedVector.phases).join(', ')}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div id="stakeport-fluid-layout" className="w-full h-screen bg-obsidian text-slate-305 font-sans flex flex-col justify-between overflow-hidden text-[13px] select-none">
       
@@ -863,6 +1383,24 @@ export default function App() {
                   )}
                 </div>
 
+                {isTopologyFullscreen && showFullscreenInspector && (selectedNodeId || selectedVectorId) && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute top-20 right-4 z-50 w-[360px] max-h-[calc(100vh-9rem)] overflow-y-auto bg-slate-950/95 border border-slate-700 rounded-xl p-3 shadow-2xl backdrop-blur-md flex flex-col space-y-3"
+                  >
+                    <div className="flex justify-end items-center border-b border-slate-800 pb-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowFullscreenInspector(false)}
+                        className="text-[10px] tracking-wider bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-400 font-mono hover:text-white transition-colors"
+                      >
+                        HIDE
+                      </button>
+                    </div>
+                    {renderFullscreenInspectorContent()}
+                  </div>
+                )}
+
             {/* HIGH DENSITY MAP GRAPH WITH FULL MICROSERVICE REGISTRIES & PAN/ZOOM CAPABILITIES */}
             
             {/* Mode selection floating pill */}
@@ -995,6 +1533,16 @@ export default function App() {
               >
                 {isTopologyFullscreen ? 'EXIT' : 'FULLSCREEN'}
               </button>
+
+              {isTopologyFullscreen && (
+                <button
+                  type="button"
+                  onClick={() => setShowFullscreenInspector(prev => !prev)}
+                  className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:bg-slate-800 rounded-lg text-xs font-mono text-slate-300 transition-colors"
+                >
+                  {showFullscreenInspector && (selectedNodeId || selectedVectorId) ? 'HIDE META' : 'SHOW META'}
+                </button>
+              )}
             </div>
 
             {/* INTERACTIVE SCROLLABLE CANVAS CONTAINER */}
@@ -1153,6 +1701,9 @@ export default function App() {
                           e.stopPropagation();
                           setSelectedVectorId(vec.id);
                           setSelectedNodeId(null);
+                          if (isTopologyFullscreen) {
+                            setShowFullscreenInspector(true);
+                          }
                         }}
                       />
 
@@ -1259,6 +1810,9 @@ export default function App() {
                       e.stopPropagation();
                       setSelectedNodeId(node.id);
                       setSelectedVectorId(null);
+                      if (isTopologyFullscreen) {
+                        setShowFullscreenInspector(true);
+                      }
                     }}
                     className={`absolute translate-x-[-50%] translate-y-[-50%] cursor-pointer rounded-xl border p-2.5 flex flex-col justify-between transition-all duration-300 z-20 pointer-events-auto ${outlineColor} ${shadowGlow} ${
                       isDetailed ? 'w-[185px] min-h-[120px] h-auto shadow-lg' : 'w-[114px] min-h-[80px]'
@@ -1676,61 +2230,69 @@ export default function App() {
                   return (
                     <div className="bg-slate-950/70 border border-slate-800 p-3 rounded space-y-3">
                       
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="text-xs font-black text-white uppercase tracking-tight font-mono">{node.label}</h4>
-                          <span className="text-[8.5px] text-slate-500 font-mono block uppercase">{node.category}</span>
+                      {/* A. Header */}
+                      <div className="flex justify-between items-start gap-2 border-b border-slate-850 pb-2">
+                        <div className="truncate">
+                          <h4 className="text-xs font-black text-white uppercase tracking-tight font-sans truncate" title={node.label}>
+                            {node.label}
+                          </h4>
+                          <div className="flex flex-wrap gap-1 mt-1 text-[8.5px] font-mono uppercase tracking-tight">
+                            <span className="text-slate-400 bg-slate-900 border border-slate-800 px-1 py-0.5 rounded">
+                              ID: {node.id}
+                            </span>
+                            <span className="text-slate-405 bg-slate-900 border border-slate-800 px-1 py-0.5 rounded truncate max-w-[130px]" title={node.role}>
+                              {node.role}
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1 py-0.5 rounded font-bold font-mono">
-                          {node.status}
-                        </span>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className={`text-[8px] font-bold font-mono px-1.5 py-0.5 rounded border uppercase leading-none ${
+                            node.status === 'LIVE' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                            node.status === 'QUEUED' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                            node.status === 'BLOCKED' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                            'bg-slate-800 text-slate-400 border-slate-700'
+                          }`}>
+                            {node.status}
+                          </span>
+                          <span className={`text-[7.5px] font-bold font-mono px-1 py-0.2 rounded border uppercase tracking-wider leading-none ${
+                            node.isAi ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/25' :
+                            ['founder_ceo', 'executive_approver', 'operating_director'].includes(node.id) ? 'bg-purple-500/10 text-purple-400 border-purple-500/25' :
+                            'bg-slate-900 text-slate-500 border-slate-800'
+                          }`}>
+                            {node.isAi ? 'AI' : ['founder_ceo', 'executive_approver', 'operating_director'].includes(node.id) ? 'HUMAN' : 'SYSTEM'}
+                          </span>
+                        </div>
                       </div>
 
-                      <p className="text-[10.5px] text-slate-400 leading-snug">
-                        {node.id === 'Content' && 'Gateway receiver managing ingress file streams and dividing content blocks into validated schema elements.'}
-                        {node.id === 'NotionDB' && 'Central in-memory Relational Core simulating attributes mappings, schema properties, and phase checklists connected with Notion API.'}
-                        {node.id === 'Governance' && 'Strategic review panel requiring human founder verification on L1 before validating or routing outputs.'}
-                        {node.id === 'RiskRouting' && 'Heuristic audit sandbox parsing anomalies through multi-tier rulesets to confirm security checkpoints are verified.'}
-                        {node.id === 'Distribution' && 'Edge content delivery node finalizing archive synchronization weights over Akamai Edge CDN lines.'}
-                      </p>
-
-                      {/* Dynamic Parameters based on Node type */}
-                      <div className="border-t border-slate-850 pt-2 space-y-2 text-[10.5px] font-mono">
-                        
-                        {node.id === 'Content' && (
-                          <div className="space-y-1.5 text-slate-400">
-                            <span className="text-slate-500 font-black block text-[9px] uppercase">GATEWAY SETTINGS:</span>
-                            <div className="flex justify-between">
-                              <span>INGRESS HARDWARE:</span>
-                              <span className="text-white">GCP-E2_v2</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>ACTIVE BACKLOG:</span>
-                              <span className="text-emerald-400 font-bold">{node.backlog} PAYLOADS</span>
-                            </div>
+                      {/* B. Core Node Metadata */}
+                      <div className="space-y-1.5 text-[10px] font-mono text-slate-400">
+                        <div className="flex justify-between">
+                          <span>HARDWARE / RUNTIME:</span>
+                          <span className="text-white font-bold">{node.hardware || 'SANDBOXv1'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>INGEST BACKLOG:</span>
+                          <span className="text-emerald-400 font-bold">{node.backlog} payloads</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>ACTIVE VIEWPORT PHASE:</span>
+                          <span className="text-cyan-400 font-bold uppercase">{activePhase}</span>
+                        </div>
+                        {tracer.active && tracer.currentNodeId === node.id && (
+                          <div className="flex justify-between items-center bg-cyan-950/40 border border-cyan-500/40 p-1 rounded mt-1">
+                            <span className="text-cyan-405 text-[8.5px] font-black animate-pulse flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block"></span>
+                              TRACER CURRENT NODE
+                            </span>
+                            <span className="text-cyan-405 text-[8.5px] font-bold">STEP {tracer.step}</span>
                           </div>
                         )}
 
-                        {node.id === 'NotionDB' && (
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center text-[10px]">
-                              <span className="text-slate-500">RELATIONAL SCHEMA WEIGHT:</span>
-                              <span className="text-white font-bold">14 TABLES</span>
-                            </div>
-                            <div className="space-y-1 bg-slate-900/60 p-1.5 rounded border border-slate-850">
-                              <span className="text-slate-500 block text-[8px] uppercase">Active Schema Keys:</span>
-                              <div className="grid grid-cols-2 gap-1 text-[8.5px]">
-                                <span className="p-1 font-bold text-center bg-slate-950 border border-cyan-500/30 text-cyan-400 rounded">Notion_API</span>
-                                <span className="p-1 font-bold text-center bg-slate-950 border border-slate-850 text-slate-500 rounded">Local_Memory</span>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {node.id === 'Governance' && (
-                          <div className="space-y-2 text-slate-400">
-                            <span className="text-slate-500 block text-[9px] uppercase">Pod Approval Strictness:</span>
-                            <div className="grid grid-cols-3 gap-1 text-[8px] text-center">
+                        {/* Interactive Approval Strictness selector specifically for approval/review categories */}
+                        {['executive_approver', 'legal_reviewer', 'brand_reviewer', 'fact_checker'].includes(node.id) && (
+                          <div className="space-y-1.5 border-t border-slate-850 pt-2 text-[10px] font-mono text-slate-400 mt-2">
+                            <span className="text-slate-500 block text-[9px] uppercase font-black">APPROVAL STRICTNESS PROTOCOL:</span>
+                            <div className="grid grid-cols-3 gap-1 text-[8px] text-center mt-1">
                               {['low', 'medium', 'strict'].map((level) => {
                                 const isSel = governanceStrictness === level;
                                 return (
@@ -1739,10 +2301,10 @@ export default function App() {
                                     type="button"
                                     onClick={() => {
                                       setGovernanceStrictness(level as any);
-                                      addLog('POD', 'warn', `Governance approval protocol altered to standard strictness level: ${level.toUpperCase()}`);
+                                      addLog('POD', 'warn', `Audit strictness protocol adjusted to level: ${level.toUpperCase()} on node ${node.label}`);
                                     }}
-                                    className={`p-1 border rounded uppercase font-bold tracking-tight ${
-                                      isSel ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/55' : 'bg-slate-950 border-slate-850 text-slate-500'
+                                    className={`p-1 border rounded uppercase font-bold tracking-tight transition-all ${
+                                      isSel ? 'bg-purple-500/20 text-purple-355 border-purple-500/60' : 'bg-slate-950/80 border-slate-850 text-slate-500 hover:text-slate-400'
                                     }`}
                                   >
                                     {level}
@@ -1752,30 +2314,229 @@ export default function App() {
                             </div>
                           </div>
                         )}
-
-                        {node.id === 'RiskRouting' && (
-                          <div className="space-y-1 text-slate-400">
-                            <div className="flex justify-between">
-                              <span>AUDIT LATENCY WEIGHT:</span>
-                              <span className="text-amber-500 font-black">{vectorSpeeds['NotionDB_RiskRouting']}ms</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>ANOMALY SCAN TIER STATUS:</span>
-                              <span className="text-emerald-400">ACTIVE L1 L2 L3</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {node.id === 'Distribution' && (
-                          <div className="space-y-2 text-slate-400">
-                            <div className="flex justify-between">
-                              <span>COMMITTED PACKETS OUT:</span>
-                              <span className="text-white font-bold">{dbRecords.filter(r => r.status === 'APPROVED').length + 120}</span>
-                            </div>
-                          </div>
-                        )}
-
                       </div>
+
+                      {/* C. Flow Relationships */}
+                      {(() => {
+                        const { incomingVectors, outgoingVectors } = getNodeRelationships(node.id);
+                        const hasIncoming = incomingVectors.length > 0;
+                        const hasOutgoing = outgoingVectors.length > 0;
+
+                        return (
+                          <div className="space-y-2 border-t border-slate-850 pt-2 text-[10px] font-mono">
+                            <span className="text-slate-500 font-black block text-[9px] uppercase tracking-wider">NETWORK FLOW CONTEXT</span>
+                            
+                            {/* incoming */}
+                            {hasIncoming && (
+                              <div className="space-y-1">
+                                <span className="text-slate-600 font-bold text-[8px] uppercase">◀ INCOMING PATHS ({incomingVectors.length}):</span>
+                                <div className="space-y-1 bg-slate-900/40 p-1.5 rounded border border-slate-850/60">
+                                  {incomingVectors.map(v => {
+                                    const isAct = v.phases.includes(activePhase);
+                                    return (
+                                      <div key={v.id} className="flex justify-between items-center gap-1">
+                                        <span className={`${isAct ? 'text-cyan-405 font-bold' : 'text-slate-600'} truncate text-[9.5px]`} title={`${v.fromLabel} ➔ ${v.toLabel}`}>
+                                          {v.label}
+                                        </span>
+                                        <div className="flex items-center gap-1 shrink-0 text-[8px]">
+                                          <span className="text-slate-500">{v.latency}ms</span>
+                                          <span className={`px-1 rounded ${isAct ? 'bg-cyan-500/10 text-cyan-400' : 'bg-slate-900 text-slate-700'}`}>
+                                            {isAct ? 'ACT' : 'STBY'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* outgoing */}
+                            {hasOutgoing && (
+                              <div className="space-y-1">
+                                <span className="text-slate-600 font-bold text-[8px] uppercase">▶ OUTGOING PATHS ({outgoingVectors.length}):</span>
+                                <div className="space-y-1 bg-slate-900/40 p-1.5 rounded border border-slate-850/60">
+                                  {outgoingVectors.map(v => {
+                                    const isAct = v.phases.includes(activePhase);
+                                    return (
+                                      <div key={v.id} className="flex justify-between items-center gap-1">
+                                        <span className={`${isAct ? 'text-amber-400 font-bold' : 'text-slate-600'} truncate text-[9.5px]`} title={`${v.fromLabel} ➔ ${v.toLabel}`}>
+                                          {v.label}
+                                        </span>
+                                        <div className="flex items-center gap-1 shrink-0 text-[8px]">
+                                          <span className="text-slate-500">{v.latency}ms</span>
+                                          <span className={`px-1 rounded ${isAct ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-900 text-slate-700'}`}>
+                                            {isAct ? 'ACT' : 'STBY'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {!hasIncoming && !hasOutgoing && (
+                              <span className="text-[9px] text-slate-600 italic">No network pathways registered.</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* D. Operating Context */}
+                      {(() => {
+                        const ctx = getNodeOperatingContext(node);
+                        const totalItems = ctx.relatedInitiatives.length +
+                                           ctx.relatedWorkflows.length +
+                                           ctx.relatedApprovals.length +
+                                           ctx.relatedDispatches.length +
+                                           ctx.relatedConstraints.length +
+                                           ctx.relatedLearningEntries.length +
+                                           ctx.relatedDbRecords.length;
+
+                        if (totalItems === 0) {
+                          return (
+                            <div className="border-t border-slate-850 pt-2 text-[10px] font-mono text-slate-600 italic">
+                              No related operating records found.
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-2 border-t border-slate-850 pt-2.5 max-h-48 overflow-y-auto pr-1">
+                            <span className="text-slate-500 font-black block text-[9px] uppercase tracking-wider">OPERATIONAL CONTEXT</span>
+
+                            {ctx.relatedInitiatives.length > 0 && (
+                              <div className="space-y-0.5">
+                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-tight block">STRATEGIC INITIATIVES ({ctx.relatedInitiatives.length})</span>
+                                {ctx.relatedInitiatives.map(ini => (
+                                  <div key={ini.id} className="bg-slate-950 px-1.5 py-0.5 border border-slate-850 rounded text-[9px] flex justify-between items-center gap-1">
+                                    <span className="text-white font-mono truncate mr-2 font-bold" title={ini.description}>{ini.name}</span>
+                                    <span className={`text-[7px] px-1 rounded font-bold font-mono scale-90 ${
+                                      ini.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400' :
+                                      ini.status === 'ACTIVE' ? 'bg-cyan-500/20 text-cyan-400' :
+                                      ini.status === 'BLOCKED' ? 'bg-red-500/20 text-red-500' :
+                                      'text-slate-500'
+                                    }`}>{ini.status}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {ctx.relatedWorkflows.length > 0 && (
+                              <div className="space-y-0.5">
+                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-tight block">WORKFLOW PIPELINES ({ctx.relatedWorkflows.length})</span>
+                                {ctx.relatedWorkflows.map(wf => (
+                                  <div key={wf.id} className="bg-slate-950 px-1.5 py-0.5 border border-slate-850 rounded text-[8.5px] flex justify-between items-center gap-1">
+                                    <span className="text-cyan-405 font-bold truncate" title={wf.recommendationPacket?.title || wf.id}>
+                                      {wf.recommendationPacket?.title || wf.id}
+                                    </span>
+                                    <span className="text-[7px] bg-slate-900 border border-slate-800 text-slate-450 px-1 rounded font-mono shrink-0 uppercase">{wf.status}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {ctx.relatedApprovals.length > 0 && (
+                              <div className="space-y-0.5">
+                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-tight block">AUDIT APPROVALS ({ctx.relatedApprovals.length})</span>
+                                {ctx.relatedApprovals.map(app => (
+                                  <div key={app.id} className="bg-slate-950 p-1 border border-slate-850 rounded text-[8.5px] space-y-0.5">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-purple-400 font-bold truncate pr-1" title={app.itemType}>{app.itemType}</span>
+                                      <span className={`text-[7px] px-1 rounded uppercase font-bold shrink-0 ${
+                                        app.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-400' :
+                                        app.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' :
+                                        'bg-amber-500/20 text-amber-400'
+                                      }`}>{app.status}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {ctx.relatedDispatches.length > 0 && (
+                              <div className="space-y-0.5">
+                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-tight block">ACTIVE DISPATCHES ({ctx.relatedDispatches.length})</span>
+                                {ctx.relatedDispatches.map(disp => (
+                                  <div key={disp.id} className="bg-slate-950 px-1.5 py-0.5 border border-slate-850 rounded text-[8.5px] flex justify-between items-center gap-1">
+                                    <span className="text-amber-500 font-mono truncate" title={disp.task}>{disp.id}</span>
+                                    <span className="text-slate-500 text-[7px] uppercase truncate">➔ {disp.receivingAgent}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {ctx.relatedConstraints.length > 0 && (
+                              <div className="space-y-0.5">
+                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-tight block">COMPLIANCE CHECKS ({ctx.relatedConstraints.length})</span>
+                                {ctx.relatedConstraints.map(con => (
+                                  <div key={con.id} className="bg-slate-950 px-1.5 py-0.5 border border-slate-850 rounded text-[8.5px] flex justify-between items-center gap-1">
+                                    <span className="text-slate-350 truncate mr-1" title={con.note}>{con.constraint}</span>
+                                    <span className={`text-[7px] font-black px-1 rounded ${con.status === 'PASSED' ? 'text-emerald-400' : 'text-red-400'}`}>{con.status}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {ctx.relatedLearningEntries.length > 0 && (
+                              <div className="space-y-0.5">
+                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-tight block">REINFORCED INSIGHTS ({ctx.relatedLearningEntries.length})</span>
+                                {ctx.relatedLearningEntries.map(le => (
+                                  <div key={le.id} className="bg-slate-950 px-1.5 py-0.5 border border-slate-850 rounded text-[8.5px] flex justify-between gap-1">
+                                    <span className="text-cyan-405 truncate font-bold">{le.observation}</span>
+                                    <span className="text-slate-500 font-sans shrink-0 text-[7.5px]">{Math.round(le.confidence * 100)}%</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {ctx.relatedDbRecords.length > 0 && (
+                              <div className="space-y-0.5">
+                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-tight block">DB CACHE REGISTRY ({ctx.relatedDbRecords.length})</span>
+                                <div className="space-y-0.5 bg-slate-950 p-1 rounded border border-slate-850/80 max-h-16 overflow-y-auto">
+                                  {ctx.relatedDbRecords.map(rec => (
+                                    <div key={rec.id} className="flex justify-between text-[7.5px] font-mono border-b border-slate-900 last:border-0 py-0.5">
+                                      <span className="text-white truncate max-w-[120px]" title={rec.key}>{rec.key}</span>
+                                      <span className="text-slate-500 italic max-w-[60px] truncate">{rec.type}</span>
+                                      <span className={`font-bold shrink-0 ${rec.status === 'APPROVED' ? 'text-emerald-400' : 'text-amber-400'}`}>{rec.status}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* E. Governance Warnings */}
+                      {(() => {
+                        const isPublishingRelated = ['cms', 'web_publisher', 'seo_agent', 'email_lifecycle', 'social_distributor', 'paid_media', 'pr_partner'].includes(node.id) || node.category === 'Publishing / Distribution';
+                        const hasPublishingApproval = approvals.some(a => a.status === 'APPROVED' && (a.itemType.toLowerCase().includes('publish') || a.itemType.toLowerCase().includes('release') || a.itemType.toLowerCase().includes('deploy')));
+                        const isBlocked = isPublishingRelated && !hasPublishingApproval;
+
+                        const nodeApprovals = approvals.filter(a => a.approver.toLowerCase().includes(node.id.toLowerCase()) || (['founder_ceo', 'executive_approver'].includes(node.id) && a.status === 'PENDING'));
+                        const hasPendingApprovals = nodeApprovals.some(a => a.status === 'PENDING');
+
+                        if (!isBlocked && !hasPendingApprovals) return null;
+
+                        return (
+                          <div className="border-t border-slate-850 pt-2.5 mt-2 space-y-1 text-[9px] font-mono font-bold leading-tight uppercase">
+                            {isBlocked && (
+                              <div className="p-1.5 rounded bg-red-950/60 border border-red-500/40 text-red-400 flex items-start gap-1">
+                                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-red-400 animate-pulse" />
+                                <span>Publishing remains blocked until explicit Founder / Executive release approval.</span>
+                              </div>
+                            )}
+                            {hasPendingApprovals && (
+                              <div className="p-1.5 rounded bg-amber-950/60 border border-amber-500/40 text-amber-400 flex items-start gap-1">
+                                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-500" />
+                                <span>Pending approval blocks downstream execution.</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                     </div>
                   );
@@ -1784,37 +2545,137 @@ export default function App() {
                 (() => {
                   const vec = vectors.find(v => v.id === selectedVectorId);
                   if (!vec) return null;
+                  const context = getSelectedVectorContext(vec);
 
                   return (
                     <div className="bg-slate-950/70 border border-slate-800 p-3 rounded space-y-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="text-[11px] font-black text-white uppercase tracking-tight font-mono">
-                            {vec.from} ➔ {vec.to}
+                      
+                      {/* A. Vector Header */}
+                      <div className="flex justify-between items-start gap-2 border-b border-slate-850 pb-2">
+                        <div className="truncate">
+                          <h4 className="text-[11px] font-black text-white uppercase tracking-tight font-mono truncate" title={`${context.fromNode?.label} to ${context.toNode?.label}`}>
+                            {context.fromNode?.label || vec.from} ➔ {context.toNode?.label || vec.to}
                           </h4>
-                          <span className="text-[8.5px] text-slate-500 font-mono block uppercase">{vec.label}</span>
+                          <span className="text-[8.5px] text-slate-500 font-mono block uppercase mt-0.5 truncate" title={vec.label}>
+                            PATH: {vec.label}
+                          </span>
                         </div>
-                        <span className="text-[8px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-1 py-0.5 rounded font-bold font-mono">
+                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold font-mono tracking-wide ${
+                          vec.status === 'ACTIVE' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' :
+                          vec.status === 'BLOCKED' ? 'bg-red-500/20 text-red-500 border border-red-500/30' :
+                          'bg-slate-850 text-slate-400 border border-slate-700'
+                        }`}>
                           {vec.status}
                         </span>
                       </div>
 
-                      <p className="text-[10.5px] text-slate-400 leading-snug">
-                        {vec.description}
-                      </p>
-
-                      <div className="border-t border-slate-850 pt-2 space-y-1 text-[10.5px] font-mono">
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">DELAY WEIGHT:</span>
-                          <span className="text-emerald-400 font-bold">{vectorSpeeds[vec.id] || vec.latencyS}ms</span>
+                      {/* B. Direction + Routing */}
+                      <div className="space-y-1.5 text-[10px] font-mono text-slate-400 border-b border-slate-850/65 pb-2">
+                        <div className="flex justify-between text-[9px] text-slate-500">
+                          <span>ROUTING SECTORS:</span>
+                          <span className="text-white font-bold">DIRECTED EDGE</span>
+                        </div>
+                        <div className="flex justify-between bg-slate-950 p-1 rounded border border-slate-900 gap-1 text-[8px]">
+                          <div className="flex flex-col truncate pr-1">
+                            <span className="text-slate-500 uppercase text-[7.5px]">SRC:</span>
+                            <span className="text-white truncate font-sans font-bold">{context.fromNode?.label || vec.from}</span>
+                            <span className="text-slate-600 truncate font-mono text-[7px]">{vec.from}</span>
+                          </div>
+                          <div className="flex flex-col items-end truncate pl-1">
+                            <span className="text-slate-500 uppercase text-[7.5px]">DEST:</span>
+                            <span className="text-white truncate font-sans font-bold">{context.toNode?.label || vec.to}</span>
+                            <span className="text-slate-600 truncate font-mono text-[7px]">{vec.to}</span>
+                          </div>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-500">ALLOWED PHASES:</span>
-                          <span className="text-white font-bold tracking-tight lowercase">
-                            {vec.phases.join(', ')}
+                          <span>ACTIVE CURRENT PHASE:</span>
+                          <span className={context.isActiveInCurrentPhase ? 'text-emerald-400 font-bold' : 'text-slate-600 font-bold'}>
+                            {context.isActiveInCurrentPhase ? 'YES' : 'NO (STANDBY)'}
                           </span>
                         </div>
+                        <div className="flex justify-between">
+                          <span>ALLOWED PHASES:</span>
+                          <span className="text-white font-black lowercase tracking-tight">{vec.phases.join(', ')}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>DELAY LATENCY (ms):</span>
+                          <span className="text-cyan-405 font-bold">{vectorSpeeds[vec.id] || vec.latencyS}ms</span>
+                        </div>
                       </div>
+
+                      {/* C. Packet / Payload Context */}
+                      <div className="space-y-2 text-[10px] font-mono">
+                        <div>
+                          <span className="text-slate-500 block text-[9px] uppercase tracking-wider font-black">INFERRED CARRIER TYPE:</span>
+                          <span className="inline-block mt-0.5 text-[10.5px] font-sans font-black text-purple-300 uppercase tracking-tight bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
+                            {context.packetSummary || 'transaction log'}
+                          </span>
+                        </div>
+
+                        <div>
+                          <p className="text-slate-400 text-[10.5px] leading-snug font-sans">{vec.description || 'Continuous connection channel for pipeline transits.'}</p>
+                        </div>
+
+                        {(context.relatedInitiatives.length > 0 || context.relatedWorkflows.length > 0 || context.relatedApprovals.length > 0) && (
+                          <div className="space-y-1 border-t border-slate-850/60 pt-2 max-h-32 overflow-y-auto pr-1">
+                            <span className="text-slate-500 block text-[8px] font-bold">RELATED CONTEXT RECORDS</span>
+                            
+                            {context.relatedInitiatives.map(ini => (
+                              <div key={ini.id} className="bg-slate-900/40 px-1 py-0.5 border border-slate-850 rounded text-[8.5px] flex justify-between gap-1 items-center">
+                                <span className="text-white truncate font-bold">{ini.name}</span>
+                                <span className="text-[7px] text-slate-500 shrink-0 font-mono">INITIATIVE</span>
+                              </div>
+                            ))}
+
+                            {context.relatedWorkflows.map(wf => (
+                              <div key={wf.id} className="bg-slate-900/40 px-1 py-0.5 border border-slate-850 rounded text-[8.5px] flex justify-between gap-1 items-center">
+                                <span className="text-cyan-405 truncate font-bold font-sans">{wf.recommendationPacket?.title || wf.id}</span>
+                                <span className="text-[7px] text-slate-500 font-mono">WORKFLOW</span>
+                              </div>
+                            ))}
+
+                            {context.relatedApprovals.map(app => (
+                              <div key={app.id} className="bg-slate-900/40 px-1 py-0.5 border border-slate-850 rounded text-[8.5px] flex justify-between gap-1 items-center">
+                                <span className="text-purple-450 truncate font-sans font-bold">{app.itemType}</span>
+                                <span className="text-[7px] text-slate-500 shrink-0 font-mono">APPROVAL</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* D. Governance Status */}
+                      {(() => {
+                        const isVecBlocked = vec.status === 'BLOCKED';
+                        const routesToApproverAndPending = vec.to === 'executive_approver' && approvals.some(a => a.status === 'PENDING');
+                        const routesToPublisherReleaseRequired = ['cms', 'web_publisher', 'seo_agent', 'email_lifecycle', 'social_distributor', 'paid_media', 'pr_partner'].includes(vec.to) && !approvals.some(a => a.status === 'APPROVED' && (a.itemType.toLowerCase().includes('publish') || a.itemType.toLowerCase().includes('release') || a.itemType.toLowerCase().includes('deploy')));
+
+                        if (!isVecBlocked && !routesToApproverAndPending && !routesToPublisherReleaseRequired) return null;
+
+                        return (
+                          <div className="border-t border-slate-850 pt-2 mt-2 space-y-1.5 text-[9px] font-mono font-bold leading-tight uppercase">
+                            {isVecBlocked && (
+                              <div className="p-1.5 rounded bg-red-950/60 border border-red-500/40 text-red-500 flex items-start gap-1">
+                                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-red-400" />
+                                <span>Vector path is strictly BLOCKED. Check upstream node errors or phase compliance rules.</span>
+                              </div>
+                            )}
+                            {routesToApproverAndPending && (
+                              <div className="p-1.5 rounded bg-amber-950/60 border border-amber-500/40 text-amber-400 flex items-start gap-1">
+                                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-500" />
+                                <span>Vector routes to high audit sector and the mandatory consensus approval is PENDING.</span>
+                              </div>
+                            )}
+                            {routesToPublisherReleaseRequired && (
+                              <div className="p-1.5 rounded bg-red-950/60 border border-red-500/40 text-red-400 flex items-start gap-1">
+                                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-red-400 animate-pulse" />
+                                <span>Distribution payload flow blocked: Release approval status required.</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
                     </div>
                   );
                 })()
