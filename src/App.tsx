@@ -821,10 +821,10 @@ export default function App() {
               {/* VISUAL TOPOLOGY OVERLAY CANVAS CONTAINER */}
               <section
                 id="interactive-topology-canvas"
-                className={`flex flex-col justify-between overflow-hidden relative transition-all duration-300 ${
+                className={`flex flex-col justify-between overflow-hidden ${
                   isTopologyFullscreen
                     ? 'fixed inset-0 w-screen h-screen bg-obsidian border-0 rounded-none p-4 z-[100]'
-                    : 'flex-1 border border-slate-700 bg-midnight rounded-xl px-6 py-4 shadow-[inset_0_0_35px_rgba(0,0,0,0.7)]'
+                    : 'relative transition-all duration-300 flex-1 border border-slate-700 bg-midnight rounded-xl px-6 py-4 shadow-[inset_0_0_35px_rgba(0,0,0,0.7)]'
                 }`}
               >
                 
@@ -1013,7 +1013,7 @@ export default function App() {
                   setPan({ x: 20, y: 10 });
                 }
               }}
-              className={`flex-1 relative w-full ${isTopologyFullscreen ? 'h-full min-h-0' : 'h-full min-h-[560px]'} border border-slate-700 bg-obsidian rounded-xl overflow-hidden select-none transition-shadow ${
+              className={`flex-1 relative w-full ${isTopologyFullscreen ? 'h-full min-h-0' : 'h-full min-h-[' + '560px]'} border border-slate-700 bg-obsidian rounded-xl overflow-hidden select-none transition-shadow ${
                 isDragging ? 'cursor-grabbing shadow-[inset_0_0_50px_rgba(0,0,0,0.95)]' : 'cursor-grab'
               }`}
             >
@@ -1193,7 +1193,7 @@ export default function App() {
                   
                   return (
                     <div
-                      className="absolute z-30 pointer-events-none -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-out"
+                      className="absolute z-30 pointer-events-none translate-x-[-50%] translate-y-[-50%] transition-all duration-700 ease-out"
                       style={{ left: `${nodeObj.x}%`, top: `${nodeObj.y}%` }}
                     >
                       <span className="absolute -inset-4 rounded-full bg-cyan-500/20 animate-ping border border-cyan-400"></span>
@@ -1260,7 +1260,7 @@ export default function App() {
                       setSelectedNodeId(node.id);
                       setSelectedVectorId(null);
                     }}
-                    className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-xl border p-2.5 flex flex-col justify-between transition-all duration-300 z-20 pointer-events-auto ${outlineColor} ${shadowGlow} ${
+                    className={`absolute translate-x-[-50%] translate-y-[-50%] cursor-pointer rounded-xl border p-2.5 flex flex-col justify-between transition-all duration-300 z-20 pointer-events-auto ${outlineColor} ${shadowGlow} ${
                       isDetailed ? 'w-[185px] min-h-[120px] h-auto shadow-lg' : 'w-[114px] min-h-[80px]'
                     }`}
                     style={{ left: `${node.x}%`, top: `${node.y}%` }}
