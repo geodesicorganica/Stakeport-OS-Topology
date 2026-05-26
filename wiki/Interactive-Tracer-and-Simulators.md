@@ -17,11 +17,30 @@ Simulates the volume of incoming transaction files stream parsing into the clust
 An interactive pipeline validator designed to visualize how metadata correlates from incoming files down to final distribution endpoints:
 *   **Initialization**: Activated from the **Topology Map** controller card.
 *   **Path Flow Checkpoints**:
-    1.  `Content Gateway` – Ingestion receiver dividing metadata payloads.
-    2.  `NotionDB` – Central in-memory relational core mappings.
-    3.  `Governance` – Human founder verification protocol (L1 audit).
-    4.  `RiskRouting` – Heuristic sandboxed threat checks.
-    5.  `Distribution` – Edge Akamai/CDN delivery pipelines.
+
+    ### A. HIGH_RISK Pipeline (Brand / PR Campaign Checkpoints)
+    1.  `growth_strategy` (Campaign Strategy Owner)
+    2.  `workflow_orch_system` (COS Sprint Handler)
+    3.  `fact_checker` (Technical Compliance Verification)
+    4.  `brand_reviewer` (Identity / Logo Auditor)
+    5.  `legal_reviewer` (Regulation Sentinel Check)
+    6.  `executive_approver` (Owner Token Consensus Gate)
+    7.  `web_publisher` (Production CDN Dispatch)
+
+    ### B. LOW_RISK Pipeline (Standard Content Publication)
+    1.  `content_strategist` (Strategic Planning & Outlining)
+    2.  `workflow_orch_system` (COS Sprint Handler)
+    3.  `content_writer` (AI Content Writer - BLOCKED in Crawl Phase)
+    4.  `fact_checker` (Accuracy / Verity Audit Match)
+    5.  `executive_approver` (Owner Token Consensus Gate)
+    6.  `cms` (Static Site Store / Publisher Cache)
+
+    ### C. LEARNING Pipeline (Feedback Telemetry Optimization)
+    1.  `analytics_stack` (User-traffic Data Aggregator)
+    2.  `feedback_director` (Observed Errors & Discrepancies Auditor)
+    3.  `learning_log_compilers` (Memory Fine-tuning Delta Compiler)
+    4.  `founder_agent` (Shared Context Model Registry Update)
+
 *   **Staging Guardrails**: Upon tracing completion, parsed payloads do not default to automatic approval. They instead stage as `PENDING` or `STAGED_FOR_REVIEW` indexes, forcing safe administrative reviews.
 
 ---
@@ -30,10 +49,10 @@ An interactive pipeline validator designed to visualize how metadata correlates 
 Simulates heavy network traffic, network division delays, or degradation on primary paths:
 *   **Registry controls**: Sliders located in bottom right grid of Panel 2.
 *   **Configurable paths**:
-    *   `Content ➔ NotionDB` (Ingestion bridge)
-    *   `NotionDB ➔ Governance` (Registry-to-strategic review pipeline)
-    *   `Governance ➔ RiskRouting` (Strategic audit check sandbox)
-    *   `RiskRouting ➔ Distribution` (Risk validation-to-delivery edge lines)
+    *   `growth_strategy ➔ workflow_orch_system` (Strategy-to-Orchestrator pipeline link)
+    *   `workflow_orch_system ➔ content_strategist` (Orchestrator execution task allocation)
+    *   `fact_checker ➔ executive_approver` (Accuracy audits-to-founder consensus bridge)
+    *   `executive_approver ➔ web_publisher` (Founder release-to-production deployment)
 *   **Dynamic UI Feedback**: Increasing any latency weight instantly slows down the animated flows on the SVG topology canvas.
 
 ---

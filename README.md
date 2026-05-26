@@ -30,7 +30,7 @@ The core simulation and visualization workspace:
 
 ### 3. Panel 3: Operating Model Inspector & DB Registry (Right Panel)
 An essential HUD for diagnostic interrogation and memory management:
-*   **Vortex Metadata HUD (Parameter Inspector)**: Interrogates individual nodes (e.g. `Content Gateway`, `Notion Relational Core`, `Governance Core`, `Risk Sandbox`, `CDN Distribution`) or transaction pathways (vectors) selected from the topology view, detailing local specs and strictness variables.
+*   **Vortex Metadata HUD (Parameter Inspector)**: Interrogates individual nodes (such as `founder_ceo`, `workflow_orch_system`, `executive_approver`, `content_strategist`, `cms`, `analytics_stack`, and `feedback_director`) or transaction pathways (vectors) selected from the topology view, detailing local specs, flow relationships, dynamic operating contexts, and strictness variables.
 *   **Notion Sim Database Core**: Real-time registry displaying active table blocks mapped to individual files, schemas, and assets. Includes inline search/filtering, a full database wipe operator, and inline manual **Allow Pass** and **Reject & Purge** actuators for high-risk escalated items in review.
 
 ---
@@ -42,7 +42,7 @@ At the heart of the central layout are five premium, high-density dashboard sect
 1.  **Topology Map**: Launches the expandable SVG interface with interactive panning, dragging, zoom, and fullscreen controls. Centers around flow nodes and active tracing routes.
 2.  **Founder Governance**: Manages executive directives, consensus audit approvals, pending recommendation packets, and active operating initiatives/campaigns conforming to specific stage compliance mandates.
 3.  **Content OS Workflows**: Controls automated integration tasks, compilation steps, RSS tracking pipelines, and assets builders, tracking current execution states across progressive phase configurations.
-4.  **Domain Agents Control**: Provides state diagnostic controls (`ACTIVE` | `PAUSED` | `STANDBY`) for specialized software agents (e.g., `Founder/CEO`, `Co-Founder`, `Sprint Manager`, `Content Writer`, `Analytics Stack`, `cms/asset server`) alongside dedicated log metrics.
+4.  **Domain Agents Control**: Provides state diagnostic controls (`ACTIVE` | `PAUSED` | `STANDBY`) for specialized software agents (e.g., `founder_ceo`, `founder_agent`, `chief_of_staff_agent`, `sprint_manager`, `content_strategist`, `seo_agent`, `analytics_stack`, and `cms`) alongside dedicated log metrics.
 5.  **Learned Insights**: Monitors automated validation scores, fine-tuning reinforcement loss curves, semantic trends, training weight variables, and automated feedback telemetry.
 
 ---

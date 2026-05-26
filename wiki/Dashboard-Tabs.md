@@ -47,7 +47,7 @@ Supervises background automation, compilers, trackers, and content deployment li
 Details the statuses and custom parameters of the dedicated software agents managing separate cluster components.
 
 *   **Domain Agents Control Board**:
-    *   Displays cards for specialized agents: `Founder/CEO`, `Co-Founder`, `Sprint Manager`, `Content Writer`, `Analytics Stack`, and `CMS/Asset Storage`.
+    *   Displays cards for specialized agents: `founder_ceo`, `founder_agent`, `chief_of_staff_agent`, `sprint_manager`, `content_strategist`, `seo_agent`, `analytics_stack`, and `cms`.
     *   Exposes critical agent parameters such as their LLM backbone configurations (e.g., Gemini 2.5 Flash), temperature controls, system prompts, operational strictness bounds, and designated roles.
 *   **Interactive Diagnostics**:
     *   Toggle agents status between `ACTIVE`, `PAUSED`, and `STANDBY`.

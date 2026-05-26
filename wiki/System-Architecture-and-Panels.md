@@ -37,7 +37,7 @@ Located on the far left, this panel dictates the active operating profile of the
 ## 2. Central Workspace Panel: Visualizations & Telemetry Consoles
 The primary workspace hosting active visualizer windows, tab containers, and telemetry monitors:
 *   **Interactive Topology Canvas**:
-    *   Constructed with SVG. Renders active nodes (`Content`, `NotionDB`, `Governance`, `RiskRouting`, `Distribution`).
+    *   Constructed with SVG. Renders active nodes representing Stakeport OS functions, including `founder_ceo`, `workflow_orch_system`, `executive_approver`, `content_strategist`, `cms`, `analytics_stack`, and `feedback_director`.
     *   Features drag-panning, scroll-zooming, full-viewport mapping expansion, and detailed hover diagnostics.
 *   **Step-by-step pipeline dispatch tracer**:
     *   Prominently positioned above the telemetry terminal when the `Topology Map` tab is active.
@@ -56,8 +56,8 @@ The primary workspace hosting active visualizer windows, tab containers, and tel
 ## 3. Right HUD Panel: Inspections & Relational Database Simulator
 The diagnostics and data administration center:
 *   **Vortex Metadata HUD (Parameter Inspector)**:
-    *   Interrogates node states, backlog levels, audit latencies, caching status, and security compliance tiers.
-    *   *Governance Strictness Selector*: Selectable strictness protocols on the `Governance` node (`low`, `medium`, `strict`), altering human verification bounds.
+    *   Interrogates node states, flow relationships, Operating Contexts, backlog levels, audit latencies, caching status, and security compliance tiers.
+    *   *Governance Strictness Selector*: Selectable strictness protocols on nodes like `executive_approver` (`low`, `medium`, `strict`), altering human verification bounds.
 *   **Notion Sim DB Core (Database Core registry)**:
     *   A continuous live list showing loaded payloads, schemas, and media items.
     *   Features inline search, filter keys, and a "Wipe Table" memory-override option.
